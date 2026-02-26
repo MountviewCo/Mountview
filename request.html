@@ -3,37 +3,58 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Requests</title>
+    <title>New Request</title>
     <link rel="stylesheet" href="style.css">
 </head>
 <body>
-    <main class="site-shell">
-        <header class="panel page-header">
-            <h1>Incoming Requests</h1>
-            <p>Rows are generated from backend data. Click one to inspect details.</p>
-        </header>
+    <main class="page-wrap">
+        <section class="panel form-card request-card">
+            <header class="card-header">
+                <h1>Create Purchase Request</h1>
+                <p>Submit a request with item and requester details. Data is sent to Google Sheets.</p>
+            </header>
 
-        <section class="panel requests-box">
-            <div class="requests-head">
-                <span>Company</span>
-                <span>Type</span>
-                <span>Date</span>
-                <span>Status</span>
-            </div>
-            <div id="requestsList" class="requests-list"></div>
+            <form id="requestForm" class="company-form" novalidate>
+                <div class="request-form-grid">
+                    <div>
+                        <label for="requesterName">Name</label>
+                        <input type="text" id="requesterName" name="requesterName" required>
+                    </div>
+
+                    <div>
+                        <label for="department">Department</label>
+                        <input type="text" id="department" name="department" required>
+                    </div>
+
+                    <div>
+                        <label for="itemName">Item Name</label>
+                        <input type="text" id="itemName" name="itemName" required>
+                    </div>
+
+                    <div>
+                        <label for="itemPrice">Price of Item (USD)</label>
+                        <input type="number" id="itemPrice" name="itemPrice" min="0" step="0.01" required>
+                    </div>
+
+                    <div>
+                        <label for="itemAmount">Amount of Item</label>
+                        <input type="number" id="itemAmount" name="itemAmount" min="1" step="1" required>
+                    </div>
+
+                    <div>
+                        <label for="requestedAt">Date and Time Requested</label>
+                        <input type="datetime-local" id="requestedAt" name="requestedAt" required>
+                    </div>
+                </div>
+
+                <p class="request-total">Estimated total: <strong id="estimatedTotal">$0.00</strong></p>
+
+                <button id="submitRequestBtn" type="submit">Submit Request</button>
+                <p id="requestStatus" class="form-feedback" role="status" aria-live="polite"></p>
+            </form>
         </section>
     </main>
 
-    <dialog id="requestModal" class="modal" aria-labelledby="modalTitle">
-        <div class="modal-content">
-            <header class="modal-header">
-                <h2 id="modalTitle">Request Details</h2>
-                <button id="closeModal" class="modal-close" type="button" aria-label="Close">X</button>
-            </header>
-            <div id="modalDetails" class="detail-grid"></div>
-        </div>
-    </dialog>
-
-    <script src="script.js"></script>
+    <script src="request.js"></script>
 </body>
 </html>

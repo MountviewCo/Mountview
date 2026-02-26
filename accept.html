@@ -3,37 +3,31 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Requests</title>
+    <title>Approve Requests</title>
     <link rel="stylesheet" href="style.css">
 </head>
 <body>
     <main class="site-shell">
         <header class="panel page-header">
-            <h1>Requests</h1>
-            <p>Select a row to open detailed request information.</p>
+            <h1>Request Approval Queue</h1>
+            <p>Requests are loaded from Google Sheets. Approve or deny each submission.</p>
         </header>
 
-        <section class="panel requests-box">
-            <div class="requests-head">
-                <span>Company</span>
-                <span>Type</span>
-                <span>Date</span>
+        <section class="panel requests-box approval-box">
+            <div class="approval-head">
+                <span>Name</span>
+                <span>Department</span>
+                <span>Item</span>
+                <span>Price</span>
+                <span>Qty</span>
+                <span>Requested At</span>
                 <span>Status</span>
+                <span>Decision</span>
             </div>
-            <div id="requestsList" class="requests-list"></div>
+            <div id="approvalList" class="requests-list"></div>
         </section>
     </main>
 
-    <dialog id="requestModal" class="modal" aria-labelledby="modalTitle">
-        <div class="modal-content">
-            <header class="modal-header">
-                <h2 id="modalTitle">Request Details</h2>
-                <button id="closeModal" class="modal-close" type="button" aria-label="Close">X</button>
-            </header>
-            <div id="modalDetails" class="detail-grid"></div>
-        </div>
-    </dialog>
-
-    <script src="script.js"></script>
+    <script src="accept.js"></script>
 </body>
 </html>
