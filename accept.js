@@ -61,6 +61,10 @@
     }
 
     async function fetchGoogleRequests() {
+        if (!TARGET_SPREADSHEET_ID) {
+            return [];
+        }
+
         const response = await fetch(getEndpointWithTargetParams("list"), {
             method: "GET"
         });
@@ -97,6 +101,10 @@
     }
 
     async function sendStatusUpdate(requestId, nextStatus) {
+        if (!TARGET_SPREADSHEET_ID) {
+            throw new Error("Missing target spreadsheet ID.");
+        }
+
         const payload = new URLSearchParams({
             action: "updateStatus",
             requestId: requestId,
@@ -113,6 +121,11 @@
 
         if (!response.ok) {
             throw new Error("Failed to update status");
+        }
+
+        const result = await response.json();
+        if (!result || result.ok !== true) {
+            throw new Error(result && result.error ? result.error : "Apps Script rejected status update");
         }
     }
 

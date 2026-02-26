@@ -39,10 +39,9 @@ Open `/connect.html` and use:
 ## Apps Script target file selection
 
 Set these in `config.js` for your website pages:
-- `spreadsheetId` (preferred if known), or
-- `spreadsheetName` (finds first matching Google Sheet by name).
+- `spreadsheetId` (preferred if known).
 
-Your frontend now sends those values to `Code.gs` on create/list/update actions.
+Your frontend sends `spreadsheetId` to `Code.gs` on create/list/update actions.
 
 For production, replace cookie-based token storage with database storage per user account.
 

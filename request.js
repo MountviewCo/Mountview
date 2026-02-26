@@ -74,6 +74,10 @@
     }
 
     async function sendToGoogleSheets(request) {
+        if (!TARGET_SPREADSHEET_ID) {
+            throw new Error("Missing target spreadsheet ID. Create a sheet in connect.html first.");
+        }
+
         const payload = new URLSearchParams({
             action: "create",
             requestId: request.requestId,
@@ -99,7 +103,12 @@
             throw new Error("Request submission failed");
         }
 
-        return response;
+        const result = await response.json();
+        if (!result || result.ok !== true) {
+            throw new Error(result && result.error ? result.error : "Apps Script rejected request");
+        }
+
+        return result;
     }
 
     async function onSubmit(event) {

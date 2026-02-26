@@ -37,6 +37,10 @@
     }
 
     async function sendToGoogleSheets(companyInfo) {
+        if (!TARGET_SPREADSHEET_ID) {
+            throw new Error("Missing target spreadsheet ID. Create a sheet in connect.html first.");
+        }
+
         const payload = new URLSearchParams({
             action: "createCompany",
             companyId: companyInfo.companyId,
@@ -59,6 +63,11 @@
 
         if (!response.ok) {
             throw new Error("Failed to submit company info");
+        }
+
+        const result = await response.json();
+        if (!result || result.ok !== true) {
+            throw new Error(result && result.error ? result.error : "Apps Script rejected company info");
         }
     }
 

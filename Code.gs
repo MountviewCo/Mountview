@@ -203,7 +203,6 @@ function getOrCreateSheet_(spreadsheet, name, headers) {
 
 function getSpreadsheetForRequest_(e) {
   const spreadsheetId = getParam_(e, "spreadsheetId");
-  const spreadsheetName = getParam_(e, "spreadsheetName");
 
   if (spreadsheetId) {
     try {
@@ -211,21 +210,6 @@ function getSpreadsheetForRequest_(e) {
     } catch (error) {
       return null;
     }
-  }
-
-  if (spreadsheetName) {
-    const files = DriveApp.getFilesByName(spreadsheetName);
-    while (files.hasNext()) {
-      const file = files.next();
-      if (file.getMimeType() === MimeType.GOOGLE_SHEETS) {
-        try {
-          return SpreadsheetApp.openById(file.getId());
-        } catch (error) {
-          return null;
-        }
-      }
-    }
-    return null;
   }
 
   return null;
