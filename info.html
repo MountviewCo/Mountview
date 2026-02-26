@@ -15,6 +15,9 @@
             </header>
 
             <form id="companyInfoForm" class="company-form" novalidate>
+                <input type="hidden" id="companyId" name="companyId">
+                <p id="companyMode" class="muted-text">Mode: Create New Company</p>
+
                 <label for="companyName">Company Name</label>
                 <input type="text" id="companyName" name="companyName" required>
 
@@ -30,10 +33,25 @@
                 <label for="annualExpense">Annual Expense</label>
                 <input type="number" id="annualExpense" name="annualExpense" min="0" required>
 
+                <label for="companyBudget">Company Budget</label>
+                <input type="number" id="companyBudget" name="companyBudget" min="0" step="0.01" required>
+
                 <label for="companyEmail">Company Email</label>
                 <input type="email" id="companyEmail" name="companyEmail" required>
 
-                <button id="submitCompanyBtn" type="submit">Submit Information</button>
+                <div class="form-actions-row">
+                    <button id="loadCompanyBtn" type="button" class="button secondary-btn">Load Existing by Email</button>
+                    <button id="newCompanyBtn" type="button" class="button secondary-btn">Start New</button>
+                </div>
+
+                <section class="department-section" aria-labelledby="departmentHeading">
+                    <h2 id="departmentHeading">Departments and Budgets</h2>
+                    <p class="muted-text">Add all departments for this company and set each budget.</p>
+                    <div id="departmentsList" class="departments-list"></div>
+                    <button id="addDepartmentBtn" type="button" class="button secondary-btn">Add Department</button>
+                </section>
+
+                <button id="submitCompanyBtn" type="submit">Save Company Information</button>
                 <p id="companyInfoStatus" class="form-feedback" role="status" aria-live="polite"></p>
             </form>
         </section>
