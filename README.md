@@ -27,8 +27,7 @@ Generate key in PowerShell:
   - Uses stored refresh token to create a new Google Sheet when you call it later.
   - Accepts JSON body:
     - `companyName` (string, optional)
-    - `reuseExisting` (boolean, optional, defaults to `true`)
-  - Returns `fileId`, `name`, `webViewLink`, and `reused` (`true` if same-name sheet already existed).
+  - Returns `fileId`, `name`, `webViewLink`.
   - Sheet names are enforced as: `Company Name - Mountview` (fallback: `User Company Name - Mountview`).
 
 ## Test page

@@ -17,11 +17,6 @@
       <div style="display:grid;gap:.8rem;">
         <button id="connectGoogle" type="button">Connect Google Account</button>
 
-        <label style="display:flex;align-items:center;gap:.5rem;">
-          <input id="reuseExisting" type="checkbox" checked>
-          Reuse existing sheet with company name
-        </label>
-
         <button id="copyTemplate" type="button">Create Google Sheet Now</button>
       </div>
 
@@ -34,7 +29,6 @@
       const statusEl = document.getElementById('status');
       const connectBtn = document.getElementById('connectGoogle');
       const copyBtn = document.getElementById('copyTemplate');
-      const reuseExistingInput = document.getElementById('reuseExisting');
 
       function setStatus(message) {
         statusEl.textContent = message;
@@ -51,8 +45,7 @@
             method: 'POST',
             headers: { 'content-type': 'application/json' },
             body: JSON.stringify({
-              companyName: localStorage.getItem('mountview_company_name') || undefined,
-              reuseExisting: reuseExistingInput.checked
+              companyName: localStorage.getItem('mountview_company_name') || undefined
             })
           });
 

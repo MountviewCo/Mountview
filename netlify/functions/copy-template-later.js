@@ -58,40 +58,6 @@ async function getAccessTokenFromRefreshToken(refreshToken) {
   return data.access_token;
 }
 
-function escapeDriveQueryValue(value) {
-  return String(value).replace(/\\/g, '\\\\').replace(/'/g, "\\'");
-}
-
-async function findSpreadsheetByName(accessToken, sheetName) {
-  const q = [
-    "mimeType='application/vnd.google-apps.spreadsheet'",
-    `name='${escapeDriveQueryValue(sheetName)}'`,
-    'trashed=false'
-  ].join(' and ');
-
-  const url = new URL('https://www.googleapis.com/drive/v3/files');
-  url.searchParams.set('q', q);
-  url.searchParams.set('pageSize', '1');
-  url.searchParams.set('orderBy', 'createdTime desc');
-  url.searchParams.set('fields', 'files(id,name)');
-  url.searchParams.set('supportsAllDrives', 'true');
-  url.searchParams.set('includeItemsFromAllDrives', 'true');
-
-  const res = await fetch(url.toString(), {
-    method: 'GET',
-    headers: {
-      authorization: `Bearer ${accessToken}`
-    }
-  });
-
-  const data = await res.json();
-  if (!res.ok) {
-    throw new Error(`Sheet lookup failed: ${JSON.stringify(data)}`);
-  }
-
-  return Array.isArray(data.files) && data.files.length ? data.files[0] : null;
-}
-
 function buildSheetName(companyNameRaw) {
   const base = typeof companyNameRaw === 'string' && companyNameRaw.trim()
     ? companyNameRaw.trim()
@@ -138,27 +104,8 @@ exports.handler = async function handler(event) {
   }
 
   const desiredName = buildSheetName(payload.companyName);
-  const reuseExisting = payload.reuseExisting !== false;
-
   try {
     const accessToken = await getAccessTokenFromRefreshToken(refreshToken);
-
-    if (reuseExisting) {
-      const existing = await findSpreadsheetByName(accessToken, desiredName);
-      if (existing) {
-        return {
-          statusCode: 200,
-          headers: { 'content-type': 'application/json' },
-          body: JSON.stringify({
-            ok: true,
-            reused: true,
-            fileId: existing.id,
-            name: existing.name,
-            webViewLink: `https://docs.google.com/spreadsheets/d/${existing.id}/edit`
-          })
-        };
-      }
-    }
 
     const createRes = await fetch('https://www.googleapis.com/drive/v3/files?supportsAllDrives=true', {
       method: 'POST',
@@ -186,7 +133,6 @@ exports.handler = async function handler(event) {
       headers: { 'content-type': 'application/json' },
       body: JSON.stringify({
         ok: true,
-        reused: false,
         fileId: createData.id,
         name: createData.name,
         webViewLink: `https://docs.google.com/spreadsheets/d/${createData.id}/edit`
