@@ -3,6 +3,7 @@
 const crypto = require('crypto');
 
 const COOKIE_REFRESH = 'mv_google_refresh_token';
+const COOKIE_SHEET_ID = 'mv_google_sheet_id';
 
 function parseCookies(rawCookie) {
   if (!rawCookie) return {};
@@ -14,6 +15,11 @@ function parseCookies(rawCookie) {
     acc[key] = val;
     return acc;
   }, {});
+}
+
+function makeCookie(name, value, maxAgeSeconds) {
+  const secure = process.env.NODE_ENV === 'production' ? '; Secure' : '';
+  return `${name}=${encodeURIComponent(value)}; Path=/; HttpOnly; SameSite=Lax; Max-Age=${maxAgeSeconds}${secure}`;
 }
 
 function getEncryptionKey() {
@@ -58,6 +64,21 @@ async function getAccessTokenFromRefreshToken(refreshToken) {
   return data.access_token;
 }
 
+async function getSpreadsheetById(accessToken, fileId) {
+  const res = await fetch(`https://www.googleapis.com/drive/v3/files/${encodeURIComponent(fileId)}?fields=id,name`, {
+    method: 'GET',
+    headers: {
+      authorization: `Bearer ${accessToken}`
+    }
+  });
+
+  if (!res.ok) {
+    return null;
+  }
+
+  return res.json();
+}
+
 function buildSheetName(companyNameRaw) {
   const base = typeof companyNameRaw === 'string' && companyNameRaw.trim()
     ? companyNameRaw.trim()
@@ -77,6 +98,7 @@ exports.handler = async function handler(event) {
 
   const cookies = parseCookies(event.headers.cookie || event.headers.Cookie || '');
   const encrypted = cookies[COOKIE_REFRESH];
+  const existingSheetId = cookies[COOKIE_SHEET_ID];
   if (!encrypted) {
     return {
       statusCode: 401,
@@ -106,6 +128,22 @@ exports.handler = async function handler(event) {
   const desiredName = buildSheetName(payload.companyName);
   try {
     const accessToken = await getAccessTokenFromRefreshToken(refreshToken);
+    if (existingSheetId) {
+      const existing = await getSpreadsheetById(accessToken, existingSheetId);
+      if (existing && existing.id) {
+        return {
+          statusCode: 200,
+          headers: { 'content-type': 'application/json' },
+          body: JSON.stringify({
+            ok: true,
+            existing: true,
+            fileId: existing.id,
+            name: existing.name,
+            webViewLink: `https://docs.google.com/spreadsheets/d/${existing.id}/edit`
+          })
+        };
+      }
+    }
 
     const createRes = await fetch('https://www.googleapis.com/drive/v3/files?supportsAllDrives=true', {
       method: 'POST',
@@ -131,8 +169,14 @@ exports.handler = async function handler(event) {
     return {
       statusCode: 200,
       headers: { 'content-type': 'application/json' },
+      multiValueHeaders: {
+        'set-cookie': [
+          makeCookie(COOKIE_SHEET_ID, createData.id, 60 * 60 * 24 * 30)
+        ]
+      },
       body: JSON.stringify({
         ok: true,
+        existing: false,
         fileId: createData.id,
         name: createData.name,
         webViewLink: `https://docs.google.com/spreadsheets/d/${createData.id}/edit`

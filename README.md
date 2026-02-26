@@ -24,7 +24,7 @@ Generate key in PowerShell:
 - `/.netlify/functions/google-callback`
   - Exchanges auth code and stores encrypted refresh token in HttpOnly cookie.
 - `/.netlify/functions/copy-template-later`
-  - Uses stored refresh token to create a new Google Sheet when you call it later.
+  - Uses stored refresh token to create a Google Sheet on first call, then reuses that same sheet on later calls.
   - Accepts JSON body:
     - `companyName` (string, optional)
   - Returns `fileId`, `name`, `webViewLink`.

@@ -58,7 +58,8 @@
             localStorage.setItem('mountview_target_spreadsheet_id', data.fileId);
           }
 
-          setStatus('Success:\n' + JSON.stringify(data, null, 2));
+          const action = data && data.existing ? 'Using existing spreadsheet' : 'Created new spreadsheet';
+          setStatus(action + ':\n' + JSON.stringify(data, null, 2));
         } catch (err) {
           setStatus('Network error: ' + err.message);
         }

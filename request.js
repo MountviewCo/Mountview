@@ -126,7 +126,7 @@
             requestedAtInput.value = toLocalDateTimeValue(new Date());
             updateTotal();
             requestStatus.className = "form-feedback success";
-            requestStatus.textContent = "Request submitted to Google Sheets.";
+            requestStatus.textContent = "Request submitted to Google Sheets (" + TARGET_SPREADSHEET_ID + ").";
         } catch (error) {
             requestStatus.className = "form-feedback error";
             requestStatus.textContent = "Unable to submit request: " + error.message;

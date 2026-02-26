@@ -188,7 +188,7 @@
         if (!Array.isArray(requests) || requests.length === 0) {
             const empty = document.createElement("p");
             empty.className = "empty-state";
-            empty.textContent = "No requests are waiting for approval.";
+            empty.textContent = "No requests are waiting for approval. Target sheet: " + (TARGET_SPREADSHEET_ID || "none");
             approvalList.appendChild(empty);
             return;
         }
