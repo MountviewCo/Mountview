@@ -9,7 +9,6 @@ A great mount for a view
 3. In Netlify Site settings -> Environment variables, add:
    - `GOOGLE_CLIENT_ID`
    - `GOOGLE_CLIENT_SECRET`
-   - `GOOGLE_REDIRECT_URI` (same callback URL above)
    - `GOOGLE_TEMPLATE_FILE_ID` (ID of your template spreadsheet file)
    - `GOOGLE_TOKEN_ENCRYPTION_KEY` (base64 for 32 random bytes)
 
@@ -35,3 +34,5 @@ Open `/connect.html` and use:
 - Copy Template Now
 
 For production, replace cookie-based token storage with database storage per user account.
+
+Note: current function code computes redirect URI from the request host, so `GOOGLE_REDIRECT_URI` is no longer required.

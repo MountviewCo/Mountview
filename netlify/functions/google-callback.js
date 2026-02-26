@@ -64,13 +64,15 @@ exports.handler = async function handler(event) {
 
   const clientId = process.env.GOOGLE_CLIENT_ID;
   const clientSecret = process.env.GOOGLE_CLIENT_SECRET;
-  const redirectUri = process.env.GOOGLE_REDIRECT_URI;
+  const host = event.headers.host;
+  const proto = event.headers['x-forwarded-proto'] || 'https';
+  const redirectUri = `${proto}://${host}/.netlify/functions/google-callback`;
 
-  if (!clientId || !clientSecret || !redirectUri) {
+  if (!clientId || !clientSecret || !host) {
     return {
       statusCode: 500,
       headers: { 'content-type': 'text/plain; charset=utf-8' },
-      body: 'Missing OAuth environment variables.'
+      body: 'Missing OAuth environment variables or host header.'
     };
   }
 

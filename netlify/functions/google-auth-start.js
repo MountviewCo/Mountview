@@ -9,15 +9,17 @@ function makeCookie(name, value, maxAgeSeconds) {
   return `${name}=${value}; Path=/; HttpOnly; SameSite=Lax; Max-Age=${maxAgeSeconds}${secure}`;
 }
 
-exports.handler = async function handler() {
+exports.handler = async function handler(event) {
   const clientId = process.env.GOOGLE_CLIENT_ID;
-  const redirectUri = process.env.GOOGLE_REDIRECT_URI;
+  const host = event.headers.host;
+  const proto = event.headers['x-forwarded-proto'] || 'https';
+  const redirectUri = `${proto}://${host}/.netlify/functions/google-callback`;
 
-  if (!clientId || !redirectUri) {
+  if (!clientId || !host) {
     return {
       statusCode: 500,
       headers: { 'content-type': 'application/json' },
-      body: JSON.stringify({ error: 'Missing GOOGLE_CLIENT_ID or GOOGLE_REDIRECT_URI.' })
+      body: JSON.stringify({ error: 'Missing GOOGLE_CLIENT_ID or host header.' })
     };
   }
 
