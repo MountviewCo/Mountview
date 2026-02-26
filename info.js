@@ -10,7 +10,6 @@
     const config = window.MOUNTVIEW_CONFIG || {};
     const GOOGLE_SHEETS_ENDPOINT = String(config.googleSheetsEndpoint || "").trim();
     const TARGET_SPREADSHEET_ID = String(localStorage.getItem("mountview_target_spreadsheet_id") || "").trim();
-    const LOCAL_STORE_KEY = "mountview_company_info";
 
     function toNumber(value) {
         const number = Number(value);
@@ -28,12 +27,6 @@
             companyEmail: String(formData.get("companyEmail") || "").trim(),
             createdAt: new Date().toISOString()
         };
-    }
-
-    function saveLocal(companyInfo) {
-        const rows = JSON.parse(localStorage.getItem(LOCAL_STORE_KEY) || "[]");
-        rows.push(companyInfo);
-        localStorage.setItem(LOCAL_STORE_KEY, JSON.stringify(rows));
     }
 
     async function sendToGoogleSheets(companyInfo) {
@@ -89,20 +82,14 @@
         statusMessage.textContent = "Submitting company info...";
 
         try {
-            if (GOOGLE_SHEETS_ENDPOINT) {
-                await sendToGoogleSheets(companyInfo);
-            } else {
-                saveLocal(companyInfo);
-            }
+            await sendToGoogleSheets(companyInfo);
 
             form.reset();
             statusMessage.className = "form-feedback success";
-            statusMessage.textContent = GOOGLE_SHEETS_ENDPOINT
-                ? "Company info submitted to Google Sheets."
-                : "Company info saved locally. Add your Apps Script URL in config.js.";
+            statusMessage.textContent = "Company info submitted to Google Sheets.";
         } catch (error) {
             statusMessage.className = "form-feedback error";
-            statusMessage.textContent = "Could not submit company info. Check your Apps Script endpoint.";
+            statusMessage.textContent = "Could not submit company info: " + error.message;
         } finally {
             submitButton.disabled = false;
         }

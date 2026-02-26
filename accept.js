@@ -8,7 +8,6 @@
     const config = window.MOUNTVIEW_CONFIG || {};
     const GOOGLE_SHEETS_ENDPOINT = String(config.googleSheetsEndpoint || "").trim();
     const TARGET_SPREADSHEET_ID = String(localStorage.getItem("mountview_target_spreadsheet_id") || "").trim();
-    const LOCAL_STORE_KEY = "mountview_requests";
 
     function getEndpointWithTargetParams(action) {
         const url = new URL(GOOGLE_SHEETS_ENDPOINT);
@@ -55,11 +54,6 @@
         return "pending";
     }
 
-    function readLocalRequests() {
-        const rows = JSON.parse(localStorage.getItem(LOCAL_STORE_KEY) || "[]");
-        return Array.isArray(rows) ? rows : [];
-    }
-
     async function fetchGoogleRequests() {
         if (!TARGET_SPREADSHEET_ID) {
             return [];
@@ -82,22 +76,7 @@
     }
 
     async function loadRequests() {
-        if (GOOGLE_SHEETS_ENDPOINT) {
-            return fetchGoogleRequests();
-        }
-
-        return readLocalRequests();
-    }
-
-    function saveLocalStatus(requestId, nextStatus) {
-        const rows = readLocalRequests().map(function (row) {
-            if (row.requestId === requestId) {
-                return Object.assign({}, row, { status: nextStatus });
-            }
-            return row;
-        });
-
-        localStorage.setItem(LOCAL_STORE_KEY, JSON.stringify(rows));
+        return fetchGoogleRequests();
     }
 
     async function sendStatusUpdate(requestId, nextStatus) {
@@ -130,12 +109,7 @@
     }
 
     async function updateStatus(request, nextStatus) {
-        if (GOOGLE_SHEETS_ENDPOINT) {
-            await sendStatusUpdate(request.requestId, nextStatus);
-        } else {
-            saveLocalStatus(request.requestId, nextStatus);
-        }
-
+        await sendStatusUpdate(request.requestId, nextStatus);
         renderList(await loadRequests());
     }
 
@@ -226,7 +200,11 @@
 
     loadRequests()
         .then(renderList)
-        .catch(function () {
-            renderList([]);
+        .catch(function (error) {
+            approvalList.innerHTML = "";
+            const err = document.createElement("p");
+            err.className = "empty-state";
+            err.textContent = "Could not load Google Sheet data: " + error.message;
+            approvalList.appendChild(err);
         });
 })();

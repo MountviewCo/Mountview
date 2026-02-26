@@ -14,7 +14,6 @@
     const config = window.MOUNTVIEW_CONFIG || {};
     const GOOGLE_SHEETS_ENDPOINT = String(config.googleSheetsEndpoint || "").trim();
     const TARGET_SPREADSHEET_ID = String(localStorage.getItem("mountview_target_spreadsheet_id") || "").trim();
-    const LOCAL_STORE_KEY = "mountview_requests";
 
     requestedAtInput.value = toLocalDateTimeValue(new Date());
 
@@ -65,12 +64,6 @@
             status: "pending",
             createdAt: new Date().toISOString()
         };
-    }
-
-    function saveLocal(request) {
-        const existing = JSON.parse(localStorage.getItem(LOCAL_STORE_KEY) || "[]");
-        existing.push(request);
-        localStorage.setItem(LOCAL_STORE_KEY, JSON.stringify(existing));
     }
 
     async function sendToGoogleSheets(request) {
@@ -127,22 +120,16 @@
         requestStatus.textContent = "Submitting request...";
 
         try {
-            if (GOOGLE_SHEETS_ENDPOINT) {
-                await sendToGoogleSheets(request);
-            } else {
-                saveLocal(request);
-            }
+            await sendToGoogleSheets(request);
 
             form.reset();
             requestedAtInput.value = toLocalDateTimeValue(new Date());
             updateTotal();
             requestStatus.className = "form-feedback success";
-            requestStatus.textContent = GOOGLE_SHEETS_ENDPOINT
-                ? "Request submitted to Google Sheets."
-                : "Request saved locally. Add your Apps Script URL in config.js.";
+            requestStatus.textContent = "Request submitted to Google Sheets.";
         } catch (error) {
             requestStatus.className = "form-feedback error";
-            requestStatus.textContent = "Unable to submit request. Please verify your Apps Script endpoint.";
+            requestStatus.textContent = "Unable to submit request: " + error.message;
         } finally {
             submitButton.disabled = false;
         }
