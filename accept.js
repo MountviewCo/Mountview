@@ -5,7 +5,8 @@
         return;
     }
 
-    const GOOGLE_SHEETS_ENDPOINT = "";
+    const config = window.MOUNTVIEW_CONFIG || {};
+    const GOOGLE_SHEETS_ENDPOINT = String(config.googleSheetsEndpoint || "").trim();
     const LOCAL_STORE_KEY = "mountview_requests";
 
     function formatCurrency(value) {

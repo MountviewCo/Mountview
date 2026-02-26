@@ -11,7 +11,8 @@
         return;
     }
 
-    const GOOGLE_SHEETS_ENDPOINT = "";
+    const config = window.MOUNTVIEW_CONFIG || {};
+    const GOOGLE_SHEETS_ENDPOINT = String(config.googleSheetsEndpoint || "").trim();
     const LOCAL_STORE_KEY = "mountview_requests";
 
     requestedAtInput.value = toLocalDateTimeValue(new Date());
@@ -125,7 +126,7 @@
             requestStatus.className = "form-feedback success";
             requestStatus.textContent = GOOGLE_SHEETS_ENDPOINT
                 ? "Request submitted to Google Sheets."
-                : "Request saved locally. Add your Apps Script URL in request.js to sync to Google Sheets.";
+                : "Request saved locally. Add your Apps Script URL in config.js.";
         } catch (error) {
             requestStatus.className = "form-feedback error";
             requestStatus.textContent = "Unable to submit request. Please verify your Apps Script endpoint.";

@@ -14,7 +14,7 @@
                 <p>Provide details below to continue your submission.</p>
             </header>
 
-            <form class="company-form" action="/submit" method="post">
+            <form id="companyInfoForm" class="company-form" novalidate>
                 <label for="companyName">Company Name</label>
                 <input type="text" id="companyName" name="companyName" required>
 
@@ -33,9 +33,13 @@
                 <label for="companyEmail">Company Email</label>
                 <input type="email" id="companyEmail" name="companyEmail" required>
 
-                <button type="submit">Submit Information</button>
+                <button id="submitCompanyBtn" type="submit">Submit Information</button>
+                <p id="companyInfoStatus" class="form-feedback" role="status" aria-live="polite"></p>
             </form>
         </section>
     </main>
+
+    <script src="config.js"></script>
+    <script src="info.js"></script>
 </body>
 </html>
