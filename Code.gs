@@ -232,7 +232,7 @@ function getSpreadsheetForRequest_(e) {
 }
 
 function getParam_(e, key) {
-  if (!e || !e.parameter) {
+  if (!e || !e.parameter) { 
     return "";
   }
   return e.parameter[key] || "";
