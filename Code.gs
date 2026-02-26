@@ -480,6 +480,8 @@ function createCompanyAuth_(e) {
   const companyName = String(getParam_(e, "companyName") || "").trim();
   const headEmail = String(getParam_(e, "headEmail") || "").trim().toLowerCase();
   const companySpreadsheetId = String(getParam_(e, "companySpreadsheetId") || "").trim();
+  const companyBudget = Number(getParam_(e, "companyBudget") || 0);
+  const departments = parseDepartments_(getParam_(e, "departments"));
   const inviteBaseUrl = String(getParam_(e, "inviteBaseUrl") || "").trim();
 
   if (!companyName) {
@@ -512,6 +514,14 @@ function createCompanyAuth_(e) {
 
   const existing = findCompanyByHeadEmail_(companiesSheet, headEmail);
   if (existing) {
+    upsertCompanyProfile_(existing.companySpreadsheetId, {
+      companyId: existing.companyId,
+      companyName: existing.companyName,
+      companyEmail: headEmail,
+      companyBudget: companyBudget,
+      departments: departments
+    });
+
     upsertMemberRow_(membersSheet, existing.companyId, headEmail, "approver");
     return {
       ok: true,
@@ -541,6 +551,14 @@ function createCompanyAuth_(e) {
     now
   ]);
 
+  upsertCompanyProfile_(companySpreadsheetId, {
+    companyId: companyId,
+    companyName: companyName,
+    companyEmail: headEmail,
+    companyBudget: companyBudget,
+    departments: departments
+  });
+
   upsertMemberRow_(membersSheet, companyId, headEmail, "approver");
 
   return {
@@ -551,6 +569,92 @@ function createCompanyAuth_(e) {
     companySpreadsheetId: companySpreadsheetId,
     inviteLink: inviteLink
   };
+}
+
+function upsertCompanyProfile_(spreadsheetId, data) {
+  if (!spreadsheetId) return;
+
+  var spreadsheet;
+  try {
+    spreadsheet = SpreadsheetApp.openById(spreadsheetId);
+  } catch (error) {
+    return;
+  }
+
+  const companySheet = getOrCreateSheet_(spreadsheet, COMPANY_SHEET, [
+    "companyId",
+    "companyName",
+    "companyAddress",
+    "stateTax",
+    "annualIncome",
+    "annualExpense",
+    "companyBudget",
+    "companyEmail",
+    "createdAt",
+    "updatedAt"
+  ]);
+
+  const companyId = String((data && data.companyId) || ("COMP-" + Date.now()));
+  const companyName = String((data && data.companyName) || "");
+  const companyEmail = String((data && data.companyEmail) || "").toLowerCase();
+  const companyBudget = Number((data && data.companyBudget) || 0);
+  const departments = Array.isArray(data && data.departments) ? data.departments : [];
+  const now = new Date().toISOString();
+
+  const row = [
+    companyId,
+    companyName,
+    "",
+    "",
+    0,
+    0,
+    companyBudget,
+    companyEmail,
+    now,
+    now
+  ];
+
+  const lastRow = companySheet.getLastRow();
+  var updated = false;
+  if (lastRow >= 2) {
+    const rows = companySheet.getRange(2, 1, lastRow - 1, 10).getValues();
+    for (var i = 0; i < rows.length; i++) {
+      const rowCompanyId = String(rows[i][0] || "");
+      const rowEmail = String(rows[i][7] || "").toLowerCase();
+      if (rowCompanyId === companyId || (companyEmail && rowEmail === companyEmail)) {
+        row[2] = String(rows[i][2] || "");
+        row[3] = String(rows[i][3] || "");
+        row[4] = Number(rows[i][4] || 0);
+        row[5] = Number(rows[i][5] || 0);
+        row[8] = String(rows[i][8] || now);
+        companySheet.getRange(i + 2, 1, 1, 10).setValues([row]);
+        updated = true;
+        break;
+      }
+    }
+  }
+
+  if (!updated) {
+    companySheet.appendRow(row);
+  }
+
+  const departmentSheet = getOrCreateSheet_(spreadsheet, DEPARTMENTS_SHEET, [
+    "department",
+    "budget",
+    "companyId",
+    "companyName",
+    "updatedAt"
+  ]);
+
+  departments.forEach(function (departmentRow) {
+    upsertDepartmentRow_(
+      departmentSheet,
+      String(departmentRow.department || "").trim(),
+      Number(departmentRow.budget) || 0,
+      companyId,
+      companyName
+    );
+  });
 }
 
 function joinCompanyInvite_(e) {

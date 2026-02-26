@@ -18,6 +18,14 @@
                 <button id="googleSignInBtn" type="button">Sign In With Google</button>
                 <label for="companyNameInput">Create Company Name</label>
                 <input id="companyNameInput" type="text" placeholder="Acme Inc">
+                <label for="companyBudgetInput">Company Max Budget</label>
+                <input id="companyBudgetInput" type="number" min="0" step="0.01" placeholder="50000">
+                <section class="department-section" aria-labelledby="departmentHeading">
+                    <h2 id="departmentHeading">Departments and Budgets</h2>
+                    <p class="muted-text" style="margin:0;">Add department budgets for this company.</p>
+                    <div id="departmentsList" class="departments-list"></div>
+                    <button id="addDepartmentBtn" type="button" class="button secondary-btn">Add Department</button>
+                </section>
                 <button id="createCompanyBtn" type="button" class="secondary-btn">Create Company</button>
                 <p id="signInStatus" class="form-feedback" role="status" aria-live="polite"></p>
                 <p id="inviteStatus" class="muted-text" style="margin:0;"></p>

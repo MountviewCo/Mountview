@@ -2,10 +2,22 @@
     const signInButton = document.getElementById("googleSignInBtn");
     const createCompanyButton = document.getElementById("createCompanyBtn");
     const companyNameInput = document.getElementById("companyNameInput");
+    const companyBudgetInput = document.getElementById("companyBudgetInput");
+    const departmentsList = document.getElementById("departmentsList");
+    const addDepartmentBtn = document.getElementById("addDepartmentBtn");
     const status = document.getElementById("signInStatus");
     const inviteStatus = document.getElementById("inviteStatus");
 
-    if (!signInButton || !createCompanyButton || !companyNameInput || !status || !inviteStatus) {
+    if (
+        !signInButton ||
+        !createCompanyButton ||
+        !companyNameInput ||
+        !companyBudgetInput ||
+        !departmentsList ||
+        !addDepartmentBtn ||
+        !status ||
+        !inviteStatus
+    ) {
         return;
     }
 
@@ -44,6 +56,70 @@
         if (data.inviteLink) localStorage.setItem("mountview_invite_link", data.inviteLink);
     }
 
+    function toNumber(value) {
+        const number = Number(value);
+        return Number.isFinite(number) ? number : 0;
+    }
+
+    function addDepartmentRow(department, budget) {
+        const row = document.createElement("div");
+        row.className = "department-row";
+
+        const departmentWrap = document.createElement("div");
+        const departmentLabel = document.createElement("label");
+        departmentLabel.textContent = "Department";
+        const departmentInput = document.createElement("input");
+        departmentInput.type = "text";
+        departmentInput.className = "department-name";
+        departmentInput.value = department || "";
+        departmentInput.required = true;
+
+        const budgetWrap = document.createElement("div");
+        const budgetLabel = document.createElement("label");
+        budgetLabel.textContent = "Budget";
+        const budgetInput = document.createElement("input");
+        budgetInput.type = "number";
+        budgetInput.className = "department-budget";
+        budgetInput.min = "0";
+        budgetInput.step = "0.01";
+        budgetInput.value = budget != null ? String(budget) : "";
+        budgetInput.required = true;
+
+        const removeButton = document.createElement("button");
+        removeButton.type = "button";
+        removeButton.className = "button danger-btn";
+        removeButton.textContent = "Remove";
+        removeButton.addEventListener("click", function () {
+            row.remove();
+            if (departmentsList.children.length === 0) {
+                addDepartmentRow("", "");
+            }
+        });
+
+        departmentWrap.appendChild(departmentLabel);
+        departmentWrap.appendChild(departmentInput);
+        budgetWrap.appendChild(budgetLabel);
+        budgetWrap.appendChild(budgetInput);
+
+        row.appendChild(departmentWrap);
+        row.appendChild(budgetWrap);
+        row.appendChild(removeButton);
+        departmentsList.appendChild(row);
+    }
+
+    function collectDepartments() {
+        return Array.from(departmentsList.querySelectorAll(".department-row"))
+            .map(function (row) {
+                return {
+                    department: String((row.querySelector(".department-name") || {}).value || "").trim(),
+                    budget: toNumber((row.querySelector(".department-budget") || {}).value)
+                };
+            })
+            .filter(function (row) {
+                return row.department.length > 0;
+            });
+    }
+
     async function getSession() {
         const response = await fetch("/.netlify/functions/google-session");
         if (!response.ok) return { authenticated: false };
@@ -76,7 +152,7 @@
         return response.json();
     }
 
-    async function createCompany(email, companyName) {
+    async function createCompany(email, companyName, companyBudget, departments) {
         const sheetRes = await fetch("/.netlify/functions/copy-template-later", {
             method: "POST",
             headers: { "content-type": "application/json" },
@@ -93,6 +169,8 @@
             companyName: companyName,
             headEmail: email,
             companySpreadsheetId: sheetData.fileId,
+            companyBudget: String(companyBudget),
+            departments: JSON.stringify(departments || []),
             inviteBaseUrl: inviteBaseUrl,
             registrySpreadsheetId: registrySpreadsheetId
         });
@@ -159,11 +237,28 @@
             setStatus("Enter a company name first.", "error");
             return;
         }
+        const companyBudget = toNumber(companyBudgetInput.value);
+        if (companyBudget <= 0) {
+            setStatus("Enter a company max budget.", "error");
+            return;
+        }
+        const departments = collectDepartments();
+        if (departments.length === 0) {
+            setStatus("Add at least one department budget.", "error");
+            return;
+        }
+        const departmentsTotal = departments.reduce(function (sum, row) {
+            return sum + (Number(row.budget) || 0);
+        }, 0);
+        if (departmentsTotal > companyBudget) {
+            setStatus("Department budgets exceed company max budget.", "error");
+            return;
+        }
 
         createCompanyButton.disabled = true;
         setStatus("Creating company...");
         try {
-            const created = await createCompany(session.email, companyName);
+            const created = await createCompany(session.email, companyName, companyBudget, departments);
             if (!created || !created.ok) {
                 throw new Error((created && created.error) || "Company creation failed");
             }
@@ -181,4 +276,10 @@
     resolveSignedInUser().catch(function (error) {
         setStatus("Sign-in setup failed: " + error.message, "error");
     });
+
+    addDepartmentBtn.addEventListener("click", function () {
+        addDepartmentRow("", "");
+    });
+
+    addDepartmentRow("", "");
 })();
