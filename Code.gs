@@ -1,4 +1,4 @@
-const SPREADSHEET_ID = "16oFvTRyHD6QBINQFkT-eYkbwY3cJyQIrYE5wP6JwCdk";
+const DEFAULT_SPREADSHEET_ID = "16oFvTRyHD6QBINQFkT-eYkbwY3cJyQIrYE5wP6JwCdk";
 const REQUESTS_SHEET = "Requests";
 const COMPANY_SHEET = "CompanyInfo";
 
@@ -6,7 +6,7 @@ function doGet(e) {
   const action = getParam_(e, "action");
 
   if (action === "list") {
-    return jsonOutput_(listRequests_());
+    return jsonOutput_(listRequests_(e));
   }
 
   return jsonOutput_({ ok: false, error: "Unsupported GET action" });
@@ -31,7 +31,12 @@ function doPost(e) {
 }
 
 function createRequest_(e) {
-  const sheet = getOrCreateSheet_(REQUESTS_SHEET, [
+  const spreadsheet = getSpreadsheetForRequest_(e);
+  if (!spreadsheet) {
+    return { ok: false, error: "Target spreadsheet not found" };
+  }
+
+  const sheet = getOrCreateSheet_(spreadsheet, REQUESTS_SHEET, [
     "requestId",
     "name",
     "department",
@@ -73,7 +78,12 @@ function updateRequestStatus_(e) {
     return { ok: false, error: "Invalid status" };
   }
 
-  const sheet = getOrCreateSheet_(REQUESTS_SHEET, [
+  const spreadsheet = getSpreadsheetForRequest_(e);
+  if (!spreadsheet) {
+    return { ok: false, error: "Target spreadsheet not found" };
+  }
+
+  const sheet = getOrCreateSheet_(spreadsheet, REQUESTS_SHEET, [
     "requestId",
     "name",
     "department",
@@ -105,8 +115,13 @@ function updateRequestStatus_(e) {
   return { ok: false, error: "Request not found" };
 }
 
-function listRequests_() {
-  const sheet = getOrCreateSheet_(REQUESTS_SHEET, [
+function listRequests_(e) {
+  const spreadsheet = getSpreadsheetForRequest_(e);
+  if (!spreadsheet) {
+    return [];
+  }
+
+  const sheet = getOrCreateSheet_(spreadsheet, REQUESTS_SHEET, [
     "requestId",
     "name",
     "department",
@@ -142,7 +157,12 @@ function listRequests_() {
 }
 
 function createCompany_(e) {
-  const sheet = getOrCreateSheet_(COMPANY_SHEET, [
+  const spreadsheet = getSpreadsheetForRequest_(e);
+  if (!spreadsheet) {
+    return { ok: false, error: "Target spreadsheet not found" };
+  }
+
+  const sheet = getOrCreateSheet_(spreadsheet, COMPANY_SHEET, [
     "companyId",
     "companyName",
     "companyAddress",
@@ -168,8 +188,7 @@ function createCompany_(e) {
   return { ok: true };
 }
 
-function getOrCreateSheet_(name, headers) {
-  const spreadsheet = SpreadsheetApp.openById(SPREADSHEET_ID);
+function getOrCreateSheet_(spreadsheet, name, headers) {
   var sheet = spreadsheet.getSheetByName(name);
 
   if (!sheet) {
@@ -181,6 +200,44 @@ function getOrCreateSheet_(name, headers) {
   }
 
   return sheet;
+}
+
+function getSpreadsheetForRequest_(e) {
+  const spreadsheetId = getParam_(e, "spreadsheetId");
+  const spreadsheetName = getParam_(e, "spreadsheetName");
+
+  if (spreadsheetId) {
+    try {
+      return SpreadsheetApp.openById(spreadsheetId);
+    } catch (error) {
+      return null;
+    }
+  }
+
+  if (spreadsheetName) {
+    const files = DriveApp.getFilesByName(spreadsheetName);
+    while (files.hasNext()) {
+      const file = files.next();
+      if (file.getMimeType() === MimeType.GOOGLE_SHEETS) {
+        try {
+          return SpreadsheetApp.openById(file.getId());
+        } catch (error) {
+          return null;
+        }
+      }
+    }
+    return null;
+  }
+
+  if (DEFAULT_SPREADSHEET_ID) {
+    try {
+      return SpreadsheetApp.openById(DEFAULT_SPREADSHEET_ID);
+    } catch (error) {
+      return null;
+    }
+  }
+
+  return null;
 }
 
 function getParam_(e, key) {

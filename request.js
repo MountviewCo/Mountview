@@ -13,6 +13,8 @@
 
     const config = window.MOUNTVIEW_CONFIG || {};
     const GOOGLE_SHEETS_ENDPOINT = String(config.googleSheetsEndpoint || "").trim();
+    const TARGET_SPREADSHEET_ID = String(config.spreadsheetId || "").trim();
+    const TARGET_SPREADSHEET_NAME = String(config.spreadsheetName || "").trim();
     const LOCAL_STORE_KEY = "mountview_requests";
 
     requestedAtInput.value = toLocalDateTimeValue(new Date());
@@ -85,6 +87,12 @@
             status: request.status,
             createdAt: request.createdAt
         });
+        if (TARGET_SPREADSHEET_ID) {
+            payload.set("spreadsheetId", TARGET_SPREADSHEET_ID);
+        }
+        if (TARGET_SPREADSHEET_NAME) {
+            payload.set("spreadsheetName", TARGET_SPREADSHEET_NAME);
+        }
 
         const response = await fetch(GOOGLE_SHEETS_ENDPOINT, {
             method: "POST",

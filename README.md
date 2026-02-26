@@ -36,6 +36,14 @@ Open `/connect.html` and use:
 - Connect Google Account
 - Create Google Sheet Now
 
+## Apps Script target file selection
+
+Set these in `config.js` for your website pages:
+- `spreadsheetId` (preferred if known), or
+- `spreadsheetName` (finds first matching Google Sheet by name).
+
+Your frontend now sends those values to `Code.gs` on create/list/update actions.
+
 For production, replace cookie-based token storage with database storage per user account.
 
 Note: current function code computes redirect URI from the request host, so `GOOGLE_REDIRECT_URI` is no longer required.

@@ -7,7 +7,21 @@
 
     const config = window.MOUNTVIEW_CONFIG || {};
     const GOOGLE_SHEETS_ENDPOINT = String(config.googleSheetsEndpoint || "").trim();
+    const TARGET_SPREADSHEET_ID = String(config.spreadsheetId || "").trim();
+    const TARGET_SPREADSHEET_NAME = String(config.spreadsheetName || "").trim();
     const LOCAL_STORE_KEY = "mountview_requests";
+
+    function getEndpointWithTargetParams(action) {
+        const url = new URL(GOOGLE_SHEETS_ENDPOINT);
+        url.searchParams.set("action", action);
+        if (TARGET_SPREADSHEET_ID) {
+            url.searchParams.set("spreadsheetId", TARGET_SPREADSHEET_ID);
+        }
+        if (TARGET_SPREADSHEET_NAME) {
+            url.searchParams.set("spreadsheetName", TARGET_SPREADSHEET_NAME);
+        }
+        return url.toString();
+    }
 
     function formatCurrency(value) {
         const number = Number(value) || 0;
@@ -51,7 +65,7 @@
     }
 
     async function fetchGoogleRequests() {
-        const response = await fetch(GOOGLE_SHEETS_ENDPOINT + "?action=list", {
+        const response = await fetch(getEndpointWithTargetParams("list"), {
             method: "GET"
         });
 
@@ -92,6 +106,12 @@
             requestId: requestId,
             status: nextStatus
         });
+        if (TARGET_SPREADSHEET_ID) {
+            payload.set("spreadsheetId", TARGET_SPREADSHEET_ID);
+        }
+        if (TARGET_SPREADSHEET_NAME) {
+            payload.set("spreadsheetName", TARGET_SPREADSHEET_NAME);
+        }
 
         const response = await fetch(GOOGLE_SHEETS_ENDPOINT, {
             method: "POST",
