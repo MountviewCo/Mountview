@@ -1,0 +1,73 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Connect Google</title>
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+  <main class="page-wrap">
+    <section class="panel form-card">
+      <header class="card-header">
+        <h1>Google Connection</h1>
+        <p>Connect now, copy your template sheet later.</p>
+      </header>
+
+      <div style="display:grid;gap:.8rem;">
+        <button id="connectGoogle" type="button">Connect Google Account</button>
+
+        <label for="sheetName">Sheet Name (optional when copying)</label>
+        <input id="sheetName" type="text" placeholder="Mountview Database">
+
+        <button id="copyTemplate" type="button">Copy Template Now</button>
+      </div>
+
+      <pre id="status" style="margin-top:1rem;white-space:pre-wrap;color:var(--muted);"></pre>
+    </section>
+  </main>
+
+  <script>
+    (function () {
+      const statusEl = document.getElementById('status');
+      const connectBtn = document.getElementById('connectGoogle');
+      const copyBtn = document.getElementById('copyTemplate');
+      const sheetNameInput = document.getElementById('sheetName');
+
+      function setStatus(message) {
+        statusEl.textContent = message;
+      }
+
+      connectBtn.addEventListener('click', function () {
+        window.location.href = '/.netlify/functions/google-auth-start';
+      });
+
+      copyBtn.addEventListener('click', async function () {
+        setStatus('Copying template...');
+        try {
+          const response = await fetch('/.netlify/functions/copy-template-later', {
+            method: 'POST',
+            headers: { 'content-type': 'application/json' },
+            body: JSON.stringify({ sheetName: sheetNameInput.value || undefined })
+          });
+
+          const data = await response.json();
+          if (!response.ok) {
+            setStatus('Error: ' + JSON.stringify(data, null, 2));
+            return;
+          }
+
+          setStatus('Success:\n' + JSON.stringify(data, null, 2));
+        } catch (err) {
+          setStatus('Network error: ' + err.message);
+        }
+      });
+
+      const params = new URLSearchParams(window.location.search);
+      if (params.get('google') === 'connected') {
+        setStatus('Google account connected. You can copy a template any time now.');
+      }
+    })();
+  </script>
+</body>
+</html>
