@@ -1,0 +1,41 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Decision History</title>
+    <link rel="stylesheet" href="style.css">
+</head>
+<body>
+    <main class="site-shell">
+        <header class="panel page-header">
+            <h1>Approval History</h1>
+            <p>Budget impact from approved and denied requests.</p>
+            <div class="form-actions-row">
+                <p id="historyUserMeta" class="muted-text" style="margin:0;"></p>
+                <button id="historyBackBtn" type="button" class="button secondary-btn">Back To Approvals</button>
+                <button id="historySignOutBtn" type="button" class="button secondary-btn">Sign Out</button>
+            </div>
+        </header>
+
+        <section class="panel" style="padding:1rem 1.2rem; margin-bottom:1rem;">
+            <p id="historySummary" class="muted-text" style="margin:0;"></p>
+        </section>
+
+        <section class="panel requests-box">
+            <div class="approval-head">
+                <span>Request ID</span>
+                <span>Department</span>
+                <span>Item</span>
+                <span>Total</span>
+                <span>Status</span>
+                <span>Decision Time</span>
+            </div>
+            <div id="historyList" class="requests-list"></div>
+        </section>
+    </main>
+
+    <script src="config.js"></script>
+    <script src="history.js"></script>
+</body>
+</html>

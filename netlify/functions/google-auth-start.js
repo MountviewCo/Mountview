@@ -31,7 +31,7 @@ exports.handler = async function handler(event) {
     access_type: 'offline',
     include_granted_scopes: 'true',
     prompt: 'consent',
-    scope: 'https://www.googleapis.com/auth/drive.file',
+    scope: 'openid email profile https://www.googleapis.com/auth/drive.file',
     state
   });
 

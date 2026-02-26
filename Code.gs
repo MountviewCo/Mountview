@@ -1,6 +1,8 @@
 const REQUESTS_SHEET = "Requests";
 const COMPANY_SHEET = "CompanyInfo";
 const DEPARTMENTS_SHEET = "Departments";
+const COMPANIES_REGISTRY_SHEET = "Companies";
+const COMPANY_MEMBERS_SHEET = "CompanyMembers";
 
 function doGet(e) {
   const action = getParam_(e, "action");
@@ -15,6 +17,10 @@ function doGet(e) {
 
   if (action === "getCompany") {
     return jsonOutput_(getCompany_(e));
+  }
+
+  if (action === "resolveUser") {
+    return jsonOutput_(resolveUser_(e));
   }
 
   return jsonOutput_({ ok: false, error: "Unsupported GET action" });
@@ -37,6 +43,14 @@ function doPost(e) {
 
   if (action === "upsertDepartment") {
     return jsonOutput_(upsertDepartment_(e));
+  }
+
+  if (action === "createCompanyAuth") {
+    return jsonOutput_(createCompanyAuth_(e));
+  }
+
+  if (action === "joinCompanyInvite") {
+    return jsonOutput_(joinCompanyInvite_(e));
   }
 
   return jsonOutput_({ ok: false, error: "Unsupported POST action" });
@@ -397,6 +411,199 @@ function getCompany_(e) {
   return { ok: true, company: company };
 }
 
+function resolveUser_(e) {
+  const registry = getRegistrySpreadsheet_(e);
+  if (!registry) {
+    return { ok: false, error: "Registry spreadsheet not found" };
+  }
+
+  const email = String(getParam_(e, "email") || "").trim().toLowerCase();
+  if (!email) {
+    return { ok: false, error: "Missing email" };
+  }
+
+  const companiesSheet = getOrCreateSheet_(registry, COMPANIES_REGISTRY_SHEET, [
+    "companyId",
+    "companyName",
+    "headEmail",
+    "companySpreadsheetId",
+    "inviteCode",
+    "inviteLink",
+    "createdAt",
+    "updatedAt"
+  ]);
+  const membersSheet = getOrCreateSheet_(registry, COMPANY_MEMBERS_SHEET, [
+    "companyId",
+    "email",
+    "role",
+    "joinedAt",
+    "updatedAt"
+  ]);
+
+  const member = findMemberByEmail_(membersSheet, email);
+  if (member) {
+    const company = findCompanyById_(companiesSheet, member.companyId);
+    if (company) {
+      return {
+        ok: true,
+        role: member.role,
+        companyId: company.companyId,
+        companyName: company.companyName,
+        companySpreadsheetId: company.companySpreadsheetId,
+        inviteLink: company.inviteLink
+      };
+    }
+  }
+
+  const headed = findCompanyByHeadEmail_(companiesSheet, email);
+  if (headed) {
+    upsertMemberRow_(membersSheet, headed.companyId, email, "approver");
+    return {
+      ok: true,
+      role: "approver",
+      companyId: headed.companyId,
+      companyName: headed.companyName,
+      companySpreadsheetId: headed.companySpreadsheetId,
+      inviteLink: headed.inviteLink
+    };
+  }
+
+  return { ok: false, error: "No company membership found for this email" };
+}
+
+function createCompanyAuth_(e) {
+  const registry = getRegistrySpreadsheet_(e);
+  if (!registry) {
+    return { ok: false, error: "Registry spreadsheet not found" };
+  }
+
+  const companyName = String(getParam_(e, "companyName") || "").trim();
+  const headEmail = String(getParam_(e, "headEmail") || "").trim().toLowerCase();
+  const companySpreadsheetId = String(getParam_(e, "companySpreadsheetId") || "").trim();
+  const inviteBaseUrl = String(getParam_(e, "inviteBaseUrl") || "").trim();
+
+  if (!companyName) {
+    return { ok: false, error: "Missing companyName" };
+  }
+  if (!headEmail) {
+    return { ok: false, error: "Missing headEmail" };
+  }
+  if (!companySpreadsheetId) {
+    return { ok: false, error: "Missing companySpreadsheetId" };
+  }
+
+  const companiesSheet = getOrCreateSheet_(registry, COMPANIES_REGISTRY_SHEET, [
+    "companyId",
+    "companyName",
+    "headEmail",
+    "companySpreadsheetId",
+    "inviteCode",
+    "inviteLink",
+    "createdAt",
+    "updatedAt"
+  ]);
+  const membersSheet = getOrCreateSheet_(registry, COMPANY_MEMBERS_SHEET, [
+    "companyId",
+    "email",
+    "role",
+    "joinedAt",
+    "updatedAt"
+  ]);
+
+  const existing = findCompanyByHeadEmail_(companiesSheet, headEmail);
+  if (existing) {
+    upsertMemberRow_(membersSheet, existing.companyId, headEmail, "approver");
+    return {
+      ok: true,
+      role: "approver",
+      companyId: existing.companyId,
+      companyName: existing.companyName,
+      companySpreadsheetId: existing.companySpreadsheetId,
+      inviteLink: existing.inviteLink
+    };
+  }
+
+  const now = new Date().toISOString();
+  const companyId = "COMP-" + Date.now();
+  const inviteCode = "INV-" + Utilities.getUuid().replace(/-/g, "").slice(0, 16);
+  const inviteLink = inviteBaseUrl
+    ? inviteBaseUrl + "?invite=" + encodeURIComponent(inviteCode)
+    : inviteCode;
+
+  companiesSheet.appendRow([
+    companyId,
+    companyName,
+    headEmail,
+    companySpreadsheetId,
+    inviteCode,
+    inviteLink,
+    now,
+    now
+  ]);
+
+  upsertMemberRow_(membersSheet, companyId, headEmail, "approver");
+
+  return {
+    ok: true,
+    role: "approver",
+    companyId: companyId,
+    companyName: companyName,
+    companySpreadsheetId: companySpreadsheetId,
+    inviteLink: inviteLink
+  };
+}
+
+function joinCompanyInvite_(e) {
+  const registry = getRegistrySpreadsheet_(e);
+  if (!registry) {
+    return { ok: false, error: "Registry spreadsheet not found" };
+  }
+
+  const inviteCode = String(getParam_(e, "inviteCode") || "").trim();
+  const email = String(getParam_(e, "email") || "").trim().toLowerCase();
+  if (!inviteCode) {
+    return { ok: false, error: "Missing inviteCode" };
+  }
+  if (!email) {
+    return { ok: false, error: "Missing email" };
+  }
+
+  const companiesSheet = getOrCreateSheet_(registry, COMPANIES_REGISTRY_SHEET, [
+    "companyId",
+    "companyName",
+    "headEmail",
+    "companySpreadsheetId",
+    "inviteCode",
+    "inviteLink",
+    "createdAt",
+    "updatedAt"
+  ]);
+  const membersSheet = getOrCreateSheet_(registry, COMPANY_MEMBERS_SHEET, [
+    "companyId",
+    "email",
+    "role",
+    "joinedAt",
+    "updatedAt"
+  ]);
+
+  const company = findCompanyByInviteCode_(companiesSheet, inviteCode);
+  if (!company) {
+    return { ok: false, error: "Invalid invite code" };
+  }
+
+  const role = String(email) === String(company.headEmail) ? "approver" : "requester";
+  upsertMemberRow_(membersSheet, company.companyId, email, role);
+
+  return {
+    ok: true,
+    role: role,
+    companyId: company.companyId,
+    companyName: company.companyName,
+    companySpreadsheetId: company.companySpreadsheetId,
+    inviteLink: company.inviteLink
+  };
+}
+
 function parseDepartments_(value) {
   if (!value) {
     return [];
@@ -465,6 +672,127 @@ function getOrCreateSheet_(spreadsheet, name, headers) {
   }
 
   return sheet;
+}
+
+function getRegistrySpreadsheet_(e) {
+  const registryId = String(getParam_(e, "registrySpreadsheetId") || "").trim();
+  if (!registryId) {
+    return null;
+  }
+  try {
+    return SpreadsheetApp.openById(registryId);
+  } catch (error) {
+    return null;
+  }
+}
+
+function findCompanyById_(sheet, companyId) {
+  const target = String(companyId || "").trim();
+  if (!target) return null;
+  const lastRow = sheet.getLastRow();
+  if (lastRow < 2) return null;
+  const rows = sheet.getRange(2, 1, lastRow - 1, 8).getValues();
+  for (var i = 0; i < rows.length; i++) {
+    if (String(rows[i][0]) === target) {
+      return {
+        companyId: rows[i][0],
+        companyName: rows[i][1],
+        headEmail: String(rows[i][2] || "").toLowerCase(),
+        companySpreadsheetId: rows[i][3],
+        inviteCode: rows[i][4],
+        inviteLink: rows[i][5]
+      };
+    }
+  }
+  return null;
+}
+
+function findCompanyByHeadEmail_(sheet, email) {
+  const target = String(email || "").trim().toLowerCase();
+  if (!target) return null;
+  const lastRow = sheet.getLastRow();
+  if (lastRow < 2) return null;
+  const rows = sheet.getRange(2, 1, lastRow - 1, 8).getValues();
+  for (var i = 0; i < rows.length; i++) {
+    if (String(rows[i][2] || "").toLowerCase() === target) {
+      return {
+        companyId: rows[i][0],
+        companyName: rows[i][1],
+        headEmail: String(rows[i][2] || "").toLowerCase(),
+        companySpreadsheetId: rows[i][3],
+        inviteCode: rows[i][4],
+        inviteLink: rows[i][5]
+      };
+    }
+  }
+  return null;
+}
+
+function findCompanyByInviteCode_(sheet, inviteCode) {
+  const target = String(inviteCode || "").trim();
+  if (!target) return null;
+  const lastRow = sheet.getLastRow();
+  if (lastRow < 2) return null;
+  const rows = sheet.getRange(2, 1, lastRow - 1, 8).getValues();
+  for (var i = 0; i < rows.length; i++) {
+    if (String(rows[i][4] || "") === target) {
+      return {
+        companyId: rows[i][0],
+        companyName: rows[i][1],
+        headEmail: String(rows[i][2] || "").toLowerCase(),
+        companySpreadsheetId: rows[i][3],
+        inviteCode: rows[i][4],
+        inviteLink: rows[i][5]
+      };
+    }
+  }
+  return null;
+}
+
+function findMemberByEmail_(sheet, email) {
+  const target = String(email || "").trim().toLowerCase();
+  if (!target) return null;
+  const lastRow = sheet.getLastRow();
+  if (lastRow < 2) return null;
+  const rows = sheet.getRange(2, 1, lastRow - 1, 5).getValues();
+  for (var i = rows.length - 1; i >= 0; i--) {
+    if (String(rows[i][1] || "").toLowerCase() === target) {
+      return {
+        companyId: rows[i][0],
+        email: String(rows[i][1] || "").toLowerCase(),
+        role: String(rows[i][2] || "requester").toLowerCase()
+      };
+    }
+  }
+  return null;
+}
+
+function upsertMemberRow_(sheet, companyId, email, role) {
+  const now = new Date().toISOString();
+  const targetCompanyId = String(companyId || "").trim();
+  const targetEmail = String(email || "").trim().toLowerCase();
+  const targetRole = String(role || "requester").toLowerCase();
+
+  const lastRow = sheet.getLastRow();
+  if (lastRow >= 2) {
+    const rows = sheet.getRange(2, 1, lastRow - 1, 5).getValues();
+    for (var i = 0; i < rows.length; i++) {
+      const rowCompanyId = String(rows[i][0] || "");
+      const rowEmail = String(rows[i][1] || "").toLowerCase();
+      if (rowCompanyId === targetCompanyId && rowEmail === targetEmail) {
+        sheet.getRange(i + 2, 1, 1, 5).setValues([[
+          targetCompanyId,
+          targetEmail,
+          targetRole,
+          rows[i][3] || now,
+          now
+        ]]);
+        return;
+      }
+    }
+  }
+
+  sheet.appendRow([targetCompanyId, targetEmail, targetRole, now, now]);
 }
 
 function getSpreadsheetForRequest_(e) {

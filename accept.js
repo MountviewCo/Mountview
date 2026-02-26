@@ -1,67 +1,18 @@
 (function () {
     const approvalList = document.getElementById("approvalList");
-    const budgetSummary = document.getElementById("budgetSummary");
-    const budgetGraph = document.getElementById("budgetGraph");
-    const departmentForm = document.getElementById("departmentForm");
-    const departmentStatus = document.getElementById("departmentStatus");
-    const saveDepartmentBtn = document.getElementById("saveDepartmentBtn");
-    const requestModal = document.getElementById("requestModal");
-    const modalDetails = document.getElementById("modalDetails");
-    const closeModal = document.getElementById("closeModal");
-    const loadingOverlay = document.getElementById("loadingOverlay");
-    const loadingText = document.getElementById("loadingText");
+    const userMeta = document.getElementById("acceptUserMeta");
+    const inviteMeta = document.getElementById("acceptInviteMeta");
+    const signOutButton = document.getElementById("acceptSignOutBtn");
+    const historyButton = document.getElementById("historyBtn");
+    const copyInviteButton = document.getElementById("copyInviteBtn");
 
-    if (
-        !approvalList ||
-        !budgetSummary ||
-        !budgetGraph ||
-        !departmentForm ||
-        !departmentStatus ||
-        !saveDepartmentBtn ||
-        !requestModal ||
-        !modalDetails ||
-        !closeModal ||
-        !loadingOverlay ||
-        !loadingText
-    ) {
+    if (!approvalList) {
         return;
     }
 
     const config = window.MOUNTVIEW_CONFIG || {};
     const GOOGLE_SHEETS_ENDPOINT = String(config.googleSheetsEndpoint || "").trim();
-    const TARGET_SPREADSHEET_ID = String(config.spreadsheetId || "").trim();
-    const TARGET_SPREADSHEET_NAME = String(config.spreadsheetName || "").trim();
-    const LOCAL_STORE_KEY = "mountview_requests";
-
-    function showLoading(message) {
-        loadingText.textContent = message || "Loading data...";
-        loadingOverlay.classList.add("visible");
-        loadingOverlay.setAttribute("aria-hidden", "false");
-    }
-
-    function hideLoading() {
-        loadingOverlay.classList.remove("visible");
-        loadingOverlay.setAttribute("aria-hidden", "true");
-    }
-
-    function withTargetParams(urlOrParams) {
-        if (urlOrParams instanceof URLSearchParams) {
-            if (TARGET_SPREADSHEET_ID) {
-                urlOrParams.set("spreadsheetId", TARGET_SPREADSHEET_ID);
-            }
-            if (TARGET_SPREADSHEET_NAME) {
-                urlOrParams.set("spreadsheetName", TARGET_SPREADSHEET_NAME);
-            }
-            return urlOrParams;
-        }
-
-        const url = new URL(GOOGLE_SHEETS_ENDPOINT);
-        url.searchParams.set("action", urlOrParams);
-        if (TARGET_SPREADSHEET_ID) {
-            url.searchParams.set("spreadsheetId", TARGET_SPREADSHEET_ID);
-        }
-        return url.toString();
-    }
+    const TARGET_SPREADSHEET_ID = String(localStorage.getItem("mountview_target_spreadsheet_id") || config.spreadsheetId || "").trim();
 
     function formatCurrency(value) {
         const number = Number(value) || 0;
@@ -71,11 +22,8 @@
         }).format(number);
     }
 
-    function formatDate(value) {
-        if (!value) {
-            return "-";
-        }
-        const date = new Date(value);
+    function formatDate(dateValue) {
+        const date = new Date(dateValue || "");
         if (Number.isNaN(date.getTime())) {
             return "-";
         }
@@ -96,67 +44,63 @@
         return "pending";
     }
 
-    function readLocalRequests() {
-        const rows = JSON.parse(localStorage.getItem(LOCAL_STORE_KEY) || "[]");
-        return Array.isArray(rows) ? rows : [];
-    }
-
-    async function fetchGoogleRequests() {
-        const response = await fetch(getEndpointWithTargetParams("list"), {
-            method: "GET"
-        });
-
+    async function enforceRole() {
+        const response = await fetch("/.netlify/functions/google-session");
         if (!response.ok) {
-            throw new Error("Fetch failed");
-        }
-        return response.json();
-    }
-
-    async function loadRemoteRequests() {
-        const data = await fetchJson("list");
-        return Array.isArray(data) ? data : [];
-    }
-
-    async function loadRemoteDepartments() {
-        const data = await fetchJson("listDepartments");
-        return Array.isArray(data) ? data : [];
-    }
-
-    async function loadRequests() {
-        if (GOOGLE_SHEETS_ENDPOINT) {
-            return fetchGoogleRequests();
+            window.location.href = "/info.html";
+            return false;
         }
 
-        return readLocalRequests();
+        const session = await response.json();
+        if (!session.authenticated) {
+            window.location.href = "/info.html";
+            return false;
+        }
+
+        const role = String(localStorage.getItem("mountview_user_role") || "");
+        if (role !== "approver") {
+            window.location.href = "/request.html";
+            return false;
+        }
+
+        if (userMeta) {
+            userMeta.textContent = "Signed in: " + (session.email || "approver");
+        }
+        if (inviteMeta) {
+            const inviteLink = String(localStorage.getItem("mountview_invite_link") || "");
+            inviteMeta.textContent = inviteLink ? ("Invite link: " + inviteLink) : "Invite link unavailable";
+        }
+        return true;
     }
 
-    function saveLocalStatus(requestId, nextStatus) {
-        const rows = readLocalRequests().map(function (row) {
-            if (row.requestId === requestId) {
-                return Object.assign({}, row, { status: nextStatus });
-            }
-            return row;
-        });
-
-        localStorage.setItem(LOCAL_STORE_KEY, JSON.stringify(rows));
-    }
-
-    async function sendStatusUpdate(requestId, nextStatus) {
+    async function fetchRequests() {
+        if (!GOOGLE_SHEETS_ENDPOINT) {
+            throw new Error("Missing googleSheetsEndpoint in config.js");
+        }
         if (!TARGET_SPREADSHEET_ID) {
-            throw new Error("Missing target spreadsheet ID.");
+            throw new Error("Missing spreadsheetId. Set it in config.js or connect first.");
         }
 
+        const url = new URL(GOOGLE_SHEETS_ENDPOINT);
+        url.searchParams.set("action", "list");
+        url.searchParams.set("spreadsheetId", TARGET_SPREADSHEET_ID);
+
+        const response = await fetch(url.toString());
+        if (!response.ok) {
+            throw new Error("Failed to fetch requests");
+        }
+
+        const data = await response.json();
+        return Array.isArray(data) ? data : [];
+    }
+
+    async function updateRequestStatus(requestId, nextStatus) {
         const payload = new URLSearchParams({
             action: "updateStatus",
             requestId: requestId,
-            status: nextStatus
+            status: nextStatus,
+            spreadsheetId: TARGET_SPREADSHEET_ID
         });
-        if (TARGET_SPREADSHEET_ID) {
-            payload.set("spreadsheetId", TARGET_SPREADSHEET_ID);
-        }
-        if (TARGET_SPREADSHEET_NAME) {
-            payload.set("spreadsheetName", TARGET_SPREADSHEET_NAME);
-        }
 
         const response = await fetch(GOOGLE_SHEETS_ENDPOINT, {
             method: "POST",
@@ -164,7 +108,7 @@
         });
 
         if (!response.ok) {
-            throw new Error("Department save failed");
+            throw new Error("Status update failed");
         }
 
         const result = await response.json();
@@ -173,17 +117,7 @@
         }
     }
 
-    async function updateStatus(request, nextStatus) {
-        if (GOOGLE_SHEETS_ENDPOINT) {
-            await sendStatusUpdate(request.requestId, nextStatus);
-        } else {
-            saveLocalStatus(request.requestId, nextStatus);
-        }
-
-        renderList(await loadRequests());
-    }
-
-    function createActionButtons(request, context) {
+    function createActionButtons(request) {
         const actionWrap = document.createElement("div");
         actionWrap.className = "action-buttons";
 
@@ -202,23 +136,20 @@
             deny.disabled = true;
         }
 
-        if (context.isOver) {
-            approve.title = "This request exceeds the department remaining budget.";
-            approve.classList.add("warning-outline");
-        }
-
-        approve.addEventListener("click", function (event) {
-            event.stopPropagation();
-            setRequestStatus(request, "approved").catch(function () {
-                alert("Could not update request status.");
-            });
+        approve.addEventListener("click", function () {
+            updateRequestStatus(request.requestId, "approved")
+                .then(loadAndRender)
+                .catch(function () {
+                    alert("Could not approve request.");
+                });
         });
 
-        deny.addEventListener("click", function (event) {
-            event.stopPropagation();
-            setRequestStatus(request, "rejected").catch(function () {
-                alert("Could not update request status.");
-            });
+        deny.addEventListener("click", function () {
+            updateRequestStatus(request.requestId, "rejected")
+                .then(loadAndRender)
+                .catch(function () {
+                    alert("Could not reject request.");
+                });
         });
 
         actionWrap.appendChild(approve);
@@ -226,20 +157,19 @@
         return actionWrap;
     }
 
-    function createRow(request, budgetStats) {
+    function createRow(request) {
         const row = document.createElement("article");
-        row.className = "approval-row approval-row-button";
-        row.tabIndex = 0;
+        row.className = "approval-row";
 
+        const total = (Number(request.itemPrice) || 0) * (Number(request.itemAmount) || 0);
         const status = normalizeStatus(request.status);
         const statusLabel = status.charAt(0).toUpperCase() + status.slice(1);
-        const context = buildRequestBudgetContext(request, budgetStats);
 
         const cells = [
             request.name || "-",
-            context.department,
+            request.department || "-",
             request.itemName || "-",
-            formatCurrency(context.total),
+            formatCurrency(total),
             formatDate(request.requestedAt)
         ];
 
@@ -253,56 +183,72 @@
         statusCell.innerHTML = '<span class="status-pill status-' + status + '">' + statusLabel + "</span>";
         row.appendChild(statusCell);
 
-        const flagCell = document.createElement("span");
-        flagCell.className = context.isOver ? "budget-flag danger-text" : "budget-flag success-text";
-        if (!context.hasBudget) {
-            flagCell.textContent = "No Budget";
-            flagCell.className = "budget-flag muted-text";
-        } else if (context.isOver) {
-            flagCell.textContent = "Over by " + formatCurrency(context.overBy);
-        } else {
-            flagCell.textContent = "Within Budget";
-        }
-        row.appendChild(flagCell);
-
-        row.appendChild(createActionButtons(Object.assign({}, request, { status: status }), context));
-
-        row.addEventListener("click", function () {
-            openModal(request, context);
-        });
-        row.addEventListener("keydown", function (event) {
-            if (event.key === "Enter" || event.key === " ") {
-                event.preventDefault();
-                openModal(request, context);
-            }
-        });
-
+        row.appendChild(createActionButtons(request));
         return row;
     }
 
-    function renderRequests(stats) {
+    function renderRequests(requests) {
         approvalList.innerHTML = "";
 
-        if (!Array.isArray(state.requests) || state.requests.length === 0) {
+        if (!Array.isArray(requests) || requests.length === 0) {
             const empty = document.createElement("p");
             empty.className = "empty-state";
-            empty.textContent = "No requests are waiting for approval.";
+            empty.textContent = "No requests found for this sheet.";
             approvalList.appendChild(empty);
             return;
         }
 
-        const sorted = state.requests.slice().sort(function (a, b) {
+        const sorted = requests.slice().sort(function (a, b) {
             return new Date(b.createdAt || 0).getTime() - new Date(a.createdAt || 0).getTime();
         });
 
         sorted.forEach(function (request) {
-            approvalList.appendChild(createRow(request, stats));
+            approvalList.appendChild(createRow(request));
         });
     }
 
-    loadRequests()
-        .then(renderList)
+    async function loadAndRender() {
+        const requests = await fetchRequests();
+        renderRequests(requests);
+    }
+
+    if (historyButton) {
+        historyButton.addEventListener("click", function () {
+            window.location.href = "/history.html";
+        });
+    }
+
+    if (copyInviteButton) {
+        copyInviteButton.addEventListener("click", function () {
+            const inviteLink = String(localStorage.getItem("mountview_invite_link") || "");
+            if (!inviteLink) {
+                alert("No invite link available yet.");
+                return;
+            }
+            navigator.clipboard.writeText(inviteLink).then(function () {
+                alert("Invite link copied.");
+            }).catch(function () {
+                alert("Could not copy invite link.");
+            });
+        });
+    }
+
+    if (signOutButton) {
+        signOutButton.addEventListener("click", function () {
+            window.location.href = "/.netlify/functions/google-logout";
+        });
+    }
+
+    enforceRole()
+        .then(function (ok) {
+            if (!ok) return;
+            return loadAndRender();
+        })
         .catch(function () {
-            renderList([]);
+            approvalList.innerHTML = "";
+            const err = document.createElement("p");
+            err.className = "empty-state";
+            err.textContent = "Could not load requests.";
+            approvalList.appendChild(err);
         });
 })();

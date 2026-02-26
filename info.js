@@ -1,315 +1,184 @@
 (function () {
-    const form = document.getElementById("companyInfoForm");
-    const submitButton = document.getElementById("submitCompanyBtn");
-    const statusMessage = document.getElementById("companyInfoStatus");
-    const companyMode = document.getElementById("companyMode");
-    const companyIdInput = document.getElementById("companyId");
-    const companyEmailInput = document.getElementById("companyEmail");
-    const loadCompanyBtn = document.getElementById("loadCompanyBtn");
-    const newCompanyBtn = document.getElementById("newCompanyBtn");
-    const departmentsList = document.getElementById("departmentsList");
-    const addDepartmentBtn = document.getElementById("addDepartmentBtn");
+    const signInButton = document.getElementById("googleSignInBtn");
+    const createCompanyButton = document.getElementById("createCompanyBtn");
+    const companyNameInput = document.getElementById("companyNameInput");
+    const status = document.getElementById("signInStatus");
+    const inviteStatus = document.getElementById("inviteStatus");
 
-    if (
-        !form ||
-        !submitButton ||
-        !statusMessage ||
-        !companyMode ||
-        !companyIdInput ||
-        !companyEmailInput ||
-        !loadCompanyBtn ||
-        !newCompanyBtn ||
-        !departmentsList ||
-        !addDepartmentBtn
-    ) {
+    if (!signInButton || !createCompanyButton || !companyNameInput || !status || !inviteStatus) {
         return;
     }
 
     const config = window.MOUNTVIEW_CONFIG || {};
-    const GOOGLE_SHEETS_ENDPOINT = String(config.googleSheetsEndpoint || "").trim();
-    const TARGET_SPREADSHEET_ID = String(localStorage.getItem("mountview_target_spreadsheet_id") || "").trim();
+    const endpoint = String(config.googleSheetsEndpoint || "").trim();
+    const registrySpreadsheetId = String(config.registrySpreadsheetId || "").trim();
+    const params = new URLSearchParams(window.location.search);
 
-    function toNumber(value) {
-        const number = Number(value);
-        return Number.isFinite(number) ? number : 0;
-    }
-
-    function setMode(editing) {
-        companyMode.textContent = editing ? "Mode: Edit Existing Company" : "Mode: Create New Company";
-    }
-
-    function createDepartmentRow(department, budget) {
-        const row = document.createElement("div");
-        row.className = "department-row";
-
-        const nameWrap = document.createElement("div");
-        const nameLabel = document.createElement("label");
-        nameLabel.textContent = "Department";
-        const nameInput = document.createElement("input");
-        nameInput.type = "text";
-        nameInput.className = "department-name";
-        nameInput.value = department || "";
-        nameInput.required = true;
-
-        const budgetWrap = document.createElement("div");
-        const budgetLabel = document.createElement("label");
-        budgetLabel.textContent = "Budget";
-        const budgetInput = document.createElement("input");
-        budgetInput.type = "number";
-        budgetInput.min = "0";
-        budgetInput.step = "0.01";
-        budgetInput.className = "department-budget";
-        budgetInput.value = budget != null ? String(budget) : "";
-        budgetInput.required = true;
-
-        const removeButton = document.createElement("button");
-        removeButton.type = "button";
-        removeButton.className = "button danger-btn";
-        removeButton.textContent = "Remove";
-
-        removeButton.addEventListener("click", function () {
-            row.remove();
-            ensureDepartmentRows();
+    if (params.get("logout") === "1") {
+        [
+            "mountview_company_id",
+            "mountview_company_name",
+            "mountview_target_spreadsheet_id",
+            "mountview_user_role",
+            "mountview_invite_link"
+        ].forEach(function (key) {
+            localStorage.removeItem(key);
         });
-
-        nameWrap.appendChild(nameLabel);
-        nameWrap.appendChild(nameInput);
-        budgetWrap.appendChild(budgetLabel);
-        budgetWrap.appendChild(budgetInput);
-
-        row.appendChild(nameWrap);
-        row.appendChild(budgetWrap);
-        row.appendChild(removeButton);
-
-        departmentsList.appendChild(row);
     }
 
-    function ensureDepartmentRows() {
-        if (departmentsList.children.length === 0) {
-            createDepartmentRow("", "");
+    function setStatus(message, kind) {
+        status.className = "form-feedback" + (kind ? " " + kind : "");
+        status.textContent = message;
+    }
+
+    function setInviteStatus(message) {
+        inviteStatus.textContent = message;
+    }
+
+    function saveAppSession(data) {
+        if (!data) return;
+        if (data.companyId) localStorage.setItem("mountview_company_id", data.companyId);
+        if (data.companyName) localStorage.setItem("mountview_company_name", data.companyName);
+        if (data.companySpreadsheetId) localStorage.setItem("mountview_target_spreadsheet_id", data.companySpreadsheetId);
+        if (data.role) localStorage.setItem("mountview_user_role", data.role);
+        if (data.inviteLink) localStorage.setItem("mountview_invite_link", data.inviteLink);
+    }
+
+    async function getSession() {
+        const response = await fetch("/.netlify/functions/google-session");
+        if (!response.ok) return { authenticated: false };
+        return response.json();
+    }
+
+    async function resolveUser(email) {
+        const url = new URL(endpoint);
+        url.searchParams.set("action", "resolveUser");
+        url.searchParams.set("email", email);
+        url.searchParams.set("registrySpreadsheetId", registrySpreadsheetId);
+        const response = await fetch(url.toString());
+        if (!response.ok) {
+            throw new Error("Could not resolve user");
         }
+        return response.json();
     }
 
-    function clearDepartmentRows() {
-        departmentsList.innerHTML = "";
-        ensureDepartmentRows();
-    }
-
-    function collectDepartments() {
-        const rows = Array.from(departmentsList.querySelectorAll(".department-row"));
-        const departments = rows
-            .map(function (row) {
-                return {
-                    department: String((row.querySelector(".department-name") || {}).value || "").trim(),
-                    budget: toNumber((row.querySelector(".department-budget") || {}).value)
-                };
-            })
-            .filter(function (row) {
-                return row.department.length > 0;
-            });
-
-        return departments;
-    }
-
-    function normalizeCompany(formData) {
-        return {
-            companyId: String(formData.get("companyId") || "").trim() || "COMP-" + Date.now(),
-            companyName: String(formData.get("companyName") || "").trim(),
-            companyAddress: String(formData.get("companyAddress") || "").trim(),
-            stateTax: String(formData.get("stateTax") || "").trim(),
-            annualIncome: toNumber(formData.get("annualIncome")),
-            annualExpense: toNumber(formData.get("annualExpense")),
-            companyBudget: toNumber(formData.get("companyBudget")),
-            companyEmail: String(formData.get("companyEmail") || "").trim(),
-            departments: collectDepartments(),
-            createdAt: new Date().toISOString()
-        };
-    }
-
-    function saveLocal(companyInfo) {
-        const rows = JSON.parse(localStorage.getItem(LOCAL_STORE_KEY) || "[]");
-        rows.push(companyInfo);
-        localStorage.setItem(LOCAL_STORE_KEY, JSON.stringify(rows));
-    }
-
-    async function sendToGoogleSheets(companyInfo) {
+    async function joinByInvite(inviteCode, email) {
         const payload = new URLSearchParams({
-            action: "createCompany",
-            companyId: companyInfo.companyId,
-            companyName: companyInfo.companyName,
-            companyAddress: companyInfo.companyAddress,
-            stateTax: companyInfo.stateTax,
-            annualIncome: String(companyInfo.annualIncome),
-            annualExpense: String(companyInfo.annualExpense),
-            companyBudget: String(companyInfo.companyBudget),
-            companyEmail: companyInfo.companyEmail,
-            departments: JSON.stringify(companyInfo.departments),
-            createdAt: companyInfo.createdAt
+            action: "joinCompanyInvite",
+            inviteCode: inviteCode,
+            email: email,
+            registrySpreadsheetId: registrySpreadsheetId
         });
-        if (TARGET_SPREADSHEET_ID) {
-            payload.set("spreadsheetId", TARGET_SPREADSHEET_ID);
+        const response = await fetch(endpoint, { method: "POST", body: payload });
+        if (!response.ok) {
+            throw new Error("Invite join failed");
         }
-        if (TARGET_SPREADSHEET_NAME) {
-            payload.set("spreadsheetName", TARGET_SPREADSHEET_NAME);
-        }
+        return response.json();
+    }
 
-        const response = await fetch(GOOGLE_SHEETS_ENDPOINT, {
+    async function createCompany(email, companyName) {
+        const sheetRes = await fetch("/.netlify/functions/copy-template-later", {
             method: "POST",
-            body: payload
+            headers: { "content-type": "application/json" },
+            body: JSON.stringify({ companyName: companyName })
         });
-
-        if (!response.ok) {
-            throw new Error("Failed to submit company info");
+        const sheetData = await sheetRes.json();
+        if (!sheetRes.ok || !sheetData.fileId) {
+            throw new Error("Could not create or load company spreadsheet");
         }
 
-        const result = await response.json();
-        if (!result || result.ok !== true) {
-            throw new Error(result && result.error ? result.error : "Apps Script rejected company info");
-        }
-    }
-
-    function fillCompanyForm(company) {
-        companyIdInput.value = String(company.companyId || "");
-        document.getElementById("companyName").value = String(company.companyName || "");
-        document.getElementById("companyAddress").value = String(company.companyAddress || "");
-        document.getElementById("stateTax").value = String(company.stateTax || "");
-        document.getElementById("annualIncome").value = String(company.annualIncome || 0);
-        document.getElementById("annualExpense").value = String(company.annualExpense || 0);
-        document.getElementById("companyBudget").value = String(company.companyBudget || 0);
-        companyEmailInput.value = String(company.companyEmail || "");
-
-        departmentsList.innerHTML = "";
-        const departments = Array.isArray(company.departments) ? company.departments : [];
-        if (departments.length === 0) {
-            createDepartmentRow("", "");
-        } else {
-            departments.forEach(function (row) {
-                createDepartmentRow(row.department, row.budget);
-            });
-        }
-
-        setMode(true);
-    }
-
-    async function loadCompanyRemoteByEmail(email) {
-        const url = new URL(GOOGLE_SHEETS_ENDPOINT);
-        buildTargetParams(url.searchParams);
-        url.searchParams.set("action", "getCompany");
-        url.searchParams.set("companyEmail", email);
-
-        const response = await fetch(url.toString(), { method: "GET" });
-        if (!response.ok) {
-            throw new Error("Failed to load company");
-        }
-
-        const data = await response.json();
-        if (!data || !data.ok || !data.company) {
-            return null;
-        }
-
-        return data.company;
-    }
-
-    function loadCompanyLocalByEmail(email) {
-        const rows = JSON.parse(localStorage.getItem(LOCAL_STORE_KEY) || "[]");
-        const match = rows.find(function (row) {
-            return String(row.companyEmail || "").toLowerCase() === email.toLowerCase();
+        const inviteBaseUrl = window.location.origin + "/info.html";
+        const payload = new URLSearchParams({
+            action: "createCompanyAuth",
+            companyName: companyName,
+            headEmail: email,
+            companySpreadsheetId: sheetData.fileId,
+            inviteBaseUrl: inviteBaseUrl,
+            registrySpreadsheetId: registrySpreadsheetId
         });
-        return match || null;
+        const response = await fetch(endpoint, { method: "POST", body: payload });
+        if (!response.ok) {
+            throw new Error("Company creation failed");
+        }
+        return response.json();
     }
 
-    async function onLoadCompany() {
-        const email = String(companyEmailInput.value || "").trim();
-        if (!email) {
-            statusMessage.className = "form-feedback error";
-            statusMessage.textContent = "Enter company email first.";
-            companyEmailInput.focus();
+    function redirectByRole(role) {
+        if (role === "approver") {
+            window.location.href = "/accept.html";
+            return;
+        }
+        window.location.href = "/request.html";
+    }
+
+    async function resolveSignedInUser() {
+        const session = await getSession();
+        if (!session.authenticated || !session.email) {
+            setStatus("Sign in with Google to continue.");
             return;
         }
 
-        loadCompanyBtn.disabled = true;
-        statusMessage.className = "form-feedback";
-        statusMessage.textContent = "Loading company info...";
-
-        try {
-            const company = GOOGLE_SHEETS_ENDPOINT
-                ? await loadCompanyRemoteByEmail(email)
-                : loadCompanyLocalByEmail(email);
-
-            if (!company) {
-                statusMessage.className = "form-feedback error";
-                statusMessage.textContent = "No company found for that email.";
-                return;
+        const inviteCode = params.get("invite");
+        if (inviteCode) {
+            setStatus("Joining company from invite...");
+            const joined = await joinByInvite(inviteCode, session.email);
+            if (!joined || !joined.ok) {
+                throw new Error((joined && joined.error) || "Invite link is invalid");
             }
-
-            fillCompanyForm(company);
-            statusMessage.className = "form-feedback success";
-            statusMessage.textContent = "Company info loaded. You can now edit and save.";
-        } catch (error) {
-            statusMessage.className = "form-feedback error";
-            statusMessage.textContent = "Could not load company info.";
-        } finally {
-            loadCompanyBtn.disabled = false;
-        }
-    }
-
-    function onStartNew() {
-        form.reset();
-        companyIdInput.value = "";
-        clearDepartmentRows();
-        setMode(false);
-        statusMessage.className = "form-feedback";
-        statusMessage.textContent = "";
-    }
-
-    async function onSubmit(event) {
-        event.preventDefault();
-
-        if (!form.checkValidity()) {
-            form.reportValidity();
+            saveAppSession(joined);
+            setInviteStatus("Joined " + joined.companyName + ". Role: " + joined.role);
+            redirectByRole(joined.role);
             return;
         }
 
-        const departments = collectDepartments();
-        if (departments.length === 0) {
-            statusMessage.className = "form-feedback error";
-            statusMessage.textContent = "Add at least one department and budget.";
+        const resolved = await resolveUser(session.email);
+        if (resolved && resolved.ok) {
+            saveAppSession(resolved);
+            setInviteStatus(resolved.inviteLink ? ("Invite link: " + resolved.inviteLink) : "");
+            redirectByRole(resolved.role);
             return;
         }
 
-        const companyInfo = normalizeCompany(new FormData(form));
-        if (companyInfo.companyName) {
-            localStorage.setItem("mountview_company_name", companyInfo.companyName);
-        }
-
-        submitButton.disabled = true;
-        statusMessage.className = "form-feedback";
-        statusMessage.textContent = "Saving company info...";
-
-        try {
-            await sendToGoogleSheets(companyInfo);
-
-            companyIdInput.value = companyInfo.companyId;
-            setMode(true);
-            statusMessage.className = "form-feedback success";
-            statusMessage.textContent = GOOGLE_SHEETS_ENDPOINT
-                ? "Company info submitted to Google Sheets."
-                : "Company info saved locally. Add your Apps Script URL in config.js.";
-        } catch (error) {
-            statusMessage.className = "form-feedback error";
-            statusMessage.textContent = "Could not submit company info. Check your Apps Script endpoint.";
-        } finally {
-            submitButton.disabled = false;
-        }
+        setStatus("Signed in as " + session.email + ". Create a company or use an invite link.", "success");
     }
 
-    addDepartmentBtn.addEventListener("click", function () {
-        createDepartmentRow("", "");
+    signInButton.addEventListener("click", function () {
+        setStatus("Redirecting to Google sign-in...");
+        window.location.href = "/.netlify/functions/google-auth-start";
     });
-    loadCompanyBtn.addEventListener("click", onLoadCompany);
-    newCompanyBtn.addEventListener("click", onStartNew);
-    form.addEventListener("submit", onSubmit);
 
-    ensureDepartmentRows();
-    setMode(false);
+    createCompanyButton.addEventListener("click", async function () {
+        const session = await getSession();
+        if (!session.authenticated || !session.email) {
+            setStatus("Sign in with Google first.", "error");
+            return;
+        }
+
+        const companyName = String(companyNameInput.value || "").trim();
+        if (!companyName) {
+            setStatus("Enter a company name first.", "error");
+            return;
+        }
+
+        createCompanyButton.disabled = true;
+        setStatus("Creating company...");
+        try {
+            const created = await createCompany(session.email, companyName);
+            if (!created || !created.ok) {
+                throw new Error((created && created.error) || "Company creation failed");
+            }
+            saveAppSession(created);
+            setInviteStatus(created.inviteLink ? ("Invite link: " + created.inviteLink) : "");
+            setStatus("Company created. Redirecting...", "success");
+            redirectByRole(created.role || "approver");
+        } catch (error) {
+            setStatus("Create company failed: " + error.message, "error");
+        } finally {
+            createCompanyButton.disabled = false;
+        }
+    });
+
+    resolveSignedInUser().catch(function (error) {
+        setStatus("Sign-in setup failed: " + error.message, "error");
+    });
 })();

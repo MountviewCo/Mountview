@@ -4,6 +4,7 @@ const crypto = require('crypto');
 
 const COOKIE_STATE = 'mv_google_oauth_state';
 const COOKIE_REFRESH = 'mv_google_refresh_token';
+const COOKIE_EMAIL = 'mv_google_email';
 
 function parseCookies(rawCookie) {
   if (!rawCookie) return {};
@@ -42,6 +43,18 @@ function encryptRefreshToken(refreshToken) {
   const ciphertext = Buffer.concat([cipher.update(refreshToken, 'utf8'), cipher.final()]);
   const tag = cipher.getAuthTag();
   return Buffer.concat([iv, tag, ciphertext]).toString('base64url');
+}
+
+function parseIdTokenEmail(idToken) {
+  if (!idToken || typeof idToken !== 'string') return '';
+  const parts = idToken.split('.');
+  if (parts.length < 2) return '';
+  try {
+    const payload = JSON.parse(Buffer.from(parts[1], 'base64url').toString('utf8'));
+    return String(payload.email || '').toLowerCase();
+  } catch (_) {
+    return '';
+  }
 }
 
 exports.handler = async function handler(event) {
@@ -109,15 +122,17 @@ exports.handler = async function handler(event) {
   }
 
   const encrypted = encryptRefreshToken(tokenData.refresh_token);
+  const email = parseIdTokenEmail(tokenData.id_token);
 
   return {
     statusCode: 302,
     headers: {
-      location: '/connect.html?google=connected'
+      location: '/info.html?google=connected'
     },
     multiValueHeaders: {
       'set-cookie': [
         makeCookie(COOKIE_REFRESH, encrypted, 60 * 60 * 24 * 30),
+        makeCookie(COOKIE_EMAIL, email, 60 * 60 * 24 * 30),
         clearCookie(COOKIE_STATE)
       ]
     },

@@ -1,48 +1,35 @@
 # Mountview
-A great mount for a view
 
-## Google OAuth + delayed sheet creation setup
+## Required flow
 
-1. In Google Cloud Console, create OAuth client type `Web application`.
-2. Authorized redirect URI must include:
-   - `https://YOUR-SITE.netlify.app/.netlify/functions/google-callback`
-3. In Netlify Site settings -> Environment variables, add:
-   - `GOOGLE_CLIENT_ID`
-   - `GOOGLE_CLIENT_SECRET`
-   - `GOOGLE_TOKEN_ENCRYPTION_KEY` (base64 for 32 random bytes)
+1. User opens `info.html` and signs in with Google.
+2. If user is not in a company yet, they can:
+   - create a company (becomes head approver), or
+   - open an invite link and join that company.
+3. Role routing:
+   - approver -> `accept.html`
+   - requester -> `request.html`
+4. Approvers accept/deny requests.
+5. Approvers open `history.html` for budget impact from decisions.
+6. Invite link is visible and copyable from `accept.html`.
 
-Generate key in PowerShell:
+## Netlify environment variables
 
-```powershell
-[Convert]::ToBase64String((1..32 | ForEach-Object { Get-Random -Minimum 0 -Maximum 256 }))
-```
+- `GOOGLE_CLIENT_ID`
+- `GOOGLE_CLIENT_SECRET`
+- `GOOGLE_TOKEN_ENCRYPTION_KEY` (base64 for 32 random bytes)
 
-## Endpoints added
+## Frontend config
 
-- `/.netlify/functions/google-auth-start`
-  - Starts Google OAuth connect flow.
-- `/.netlify/functions/google-callback`
-  - Exchanges auth code and stores encrypted refresh token in HttpOnly cookie.
-- `/.netlify/functions/copy-template-later`
-  - Uses stored refresh token to create a Google Sheet on first call, then reuses that same sheet on later calls.
-  - Accepts JSON body:
-    - `companyName` (string, optional)
-  - Returns `fileId`, `name`, `webViewLink`.
-  - Sheet names are enforced as: `Company Name - Mountview` (fallback: `User Company Name - Mountview`).
+Edit `config.js`:
 
-## Test page
+- `googleSheetsEndpoint`: your Apps Script web app `/exec` URL
+- `registrySpreadsheetId`: your registry sheet ID
+- `spreadsheetId`: optional fallback request sheet ID (normal flow uses company assignment)
 
-Open `/connect.html` and use:
-- Connect Google Account
-- Create Google Sheet Now
+## Apps Script
 
-## Apps Script target file selection
-
-Set these in `config.js` for your website pages:
-- `spreadsheetId` (preferred if known).
-
-Your frontend sends `spreadsheetId` to `Code.gs` on create/list/update actions.
-
-For production, replace cookie-based token storage with database storage per user account.
-
-Note: current function code computes redirect URI from the request host, so `GOOGLE_REDIRECT_URI` is no longer required.
+Deploy latest `Code.gs` web app version and use that `/exec` URL in `config.js`.
+Registry workbook should contain (or allow auto-create) sheets:
+- `Companies` (companyName, headEmail, inviteLink, companySpreadsheetId)
+- `CompanyMembers` (email, role, companyId)

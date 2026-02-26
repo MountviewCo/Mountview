@@ -412,7 +412,7 @@ body {
 .approval-head,
 .approval-row {
     display: grid;
-    grid-template-columns: 1.1fr 1fr 1.1fr 0.8fr 0.5fr 1fr 0.8fr 1fr;
+    grid-template-columns: 1.1fr 1fr 1.1fr 0.9fr 1fr 0.8fr 1fr;
     gap: 0.6rem;
     align-items: center;
     padding: 0.9rem 1rem;
