@@ -509,6 +509,43 @@ body {
     font-weight: 700;
 }
 
+.budget-kpis {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 0.8rem;
+    margin-bottom: 1rem;
+}
+
+.history-graph-wrap {
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    background: rgba(9, 20, 40, 0.75);
+    padding: 0.5rem;
+}
+
+.history-graph {
+    width: 100%;
+    height: 260px;
+    display: block;
+}
+
+.graph-max-line {
+    stroke: var(--warning);
+    stroke-width: 2;
+    stroke-dasharray: 6 6;
+}
+
+.graph-remaining-line {
+    fill: none;
+    stroke: var(--accent);
+    stroke-width: 3;
+}
+
+.graph-label {
+    fill: var(--muted);
+    font-size: 12px;
+}
+
 .success-text {
     color: var(--success);
 }
@@ -684,6 +721,10 @@ body {
 }
 
 @media (max-width: 620px) {
+    .budget-kpis {
+        grid-template-columns: 1fr;
+    }
+
     .budget-summary {
         grid-template-columns: 1fr;
     }

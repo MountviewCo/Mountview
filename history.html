@@ -22,6 +22,22 @@
             <p id="historySummary" class="muted-text" style="margin:0;"></p>
         </section>
 
+        <section class="panel" style="padding:1rem 1.2rem; margin-bottom:1rem;">
+            <div class="budget-kpis">
+                <article class="summary-card">
+                    <h3>Current Budget</h3>
+                    <p id="historyCurrentBudget">$0.00</p>
+                </article>
+                <article class="summary-card">
+                    <h3>Max Budget</h3>
+                    <p id="historyMaxBudget">$0.00</p>
+                </article>
+            </div>
+            <div class="history-graph-wrap">
+                <svg id="historyBudgetGraph" class="history-graph" viewBox="0 0 900 280" preserveAspectRatio="none" aria-label="Budget history graph"></svg>
+            </div>
+        </section>
+
         <section class="panel requests-box">
             <div class="approval-head">
                 <span>Request ID</span>

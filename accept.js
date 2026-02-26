@@ -190,15 +190,19 @@
     function renderRequests(requests) {
         approvalList.innerHTML = "";
 
-        if (!Array.isArray(requests) || requests.length === 0) {
+        const pending = (Array.isArray(requests) ? requests : []).filter(function (request) {
+            return normalizeStatus(request.status) === "pending";
+        });
+
+        if (pending.length === 0) {
             const empty = document.createElement("p");
             empty.className = "empty-state";
-            empty.textContent = "No requests found for this sheet.";
+            empty.textContent = "No pending requests.";
             approvalList.appendChild(empty);
             return;
         }
 
-        const sorted = requests.slice().sort(function (a, b) {
+        const sorted = pending.slice().sort(function (a, b) {
             return new Date(b.createdAt || 0).getTime() - new Date(a.createdAt || 0).getTime();
         });
 

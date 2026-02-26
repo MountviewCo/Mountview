@@ -2,6 +2,9 @@
     const list = document.getElementById("historyList");
     const summary = document.getElementById("historySummary");
     const userMeta = document.getElementById("historyUserMeta");
+    const currentBudgetEl = document.getElementById("historyCurrentBudget");
+    const maxBudgetEl = document.getElementById("historyMaxBudget");
+    const graph = document.getElementById("historyBudgetGraph");
     const backBtn = document.getElementById("historyBackBtn");
     const signOutBtn = document.getElementById("historySignOutBtn");
 
@@ -12,6 +15,7 @@
     const config = window.MOUNTVIEW_CONFIG || {};
     const endpoint = String(config.googleSheetsEndpoint || "").trim();
     const spreadsheetId = String(localStorage.getItem("mountview_target_spreadsheet_id") || config.spreadsheetId || "").trim();
+    const companyId = String(localStorage.getItem("mountview_company_id") || "").trim();
 
     function formatCurrency(value) {
         const number = Number(value) || 0;
@@ -65,7 +69,109 @@
         return Array.isArray(data) ? data : [];
     }
 
-    function render(requests) {
+    async function fetchCompanyBudget() {
+        if (!companyId) {
+            return 0;
+        }
+        const url = new URL(endpoint);
+        url.searchParams.set("action", "getCompany");
+        url.searchParams.set("companyId", companyId);
+        url.searchParams.set("spreadsheetId", spreadsheetId);
+        const response = await fetch(url.toString());
+        if (!response.ok) {
+            return 0;
+        }
+        const data = await response.json();
+        if (!data || !data.ok || !data.company) {
+            return 0;
+        }
+        return Number(data.company.companyBudget) || 0;
+    }
+
+    function toAmount(request) {
+        return (Number(request.itemPrice) || 0) * (Number(request.itemAmount) || 0);
+    }
+
+    function toDecisionTime(request) {
+        const raw = request.updatedAt || request.decisionAt || request.createdAt || "";
+        const time = new Date(raw).getTime();
+        return Number.isFinite(time) ? time : 0;
+    }
+
+    function buildBudgetSeries(requests, maxBudget) {
+        const approved = requests
+            .filter(function (request) {
+                return normalizeStatus(request.status) === "approved";
+            })
+            .slice()
+            .sort(function (a, b) {
+                return toDecisionTime(a) - toDecisionTime(b);
+            });
+
+        let spent = 0;
+        const points = [];
+        const startTime = approved.length ? toDecisionTime(approved[0]) : Date.now();
+        points.push({ x: startTime, y: maxBudget });
+
+        approved.forEach(function (request) {
+            spent += toAmount(request);
+            points.push({ x: toDecisionTime(request), y: maxBudget - spent });
+        });
+
+        if (points.length === 1) {
+            points.push({ x: Date.now(), y: maxBudget });
+        }
+
+        return {
+            points: points,
+            spent: spent,
+            current: maxBudget - spent
+        };
+    }
+
+    function polyline(points) {
+        return points.map(function (p) {
+            return p.x + "," + p.y;
+        }).join(" ");
+    }
+
+    function renderBudgetGraph(series, maxBudget) {
+        if (!graph) {
+            return;
+        }
+        const width = 900;
+        const height = 280;
+        const pad = { l: 50, r: 20, t: 20, b: 40 };
+        const minX = series.points[0].x;
+        const maxX = series.points[series.points.length - 1].x || minX + 1;
+        const xSpan = Math.max(1, maxX - minX);
+        const minY = Math.min(0, series.current, maxBudget);
+        const maxY = Math.max(maxBudget, 1);
+        const ySpan = Math.max(1, maxY - minY);
+
+        function sx(x) {
+            return pad.l + ((x - minX) / xSpan) * (width - pad.l - pad.r);
+        }
+        function sy(y) {
+            return pad.t + ((maxY - y) / ySpan) * (height - pad.t - pad.b);
+        }
+
+        const remainingPoints = series.points.map(function (p) {
+            return { x: sx(p.x), y: sy(p.y) };
+        });
+        const maxLine = [
+            { x: pad.l, y: sy(maxBudget) },
+            { x: width - pad.r, y: sy(maxBudget) }
+        ];
+
+        graph.innerHTML = ""
+            + '<line x1="' + maxLine[0].x + '" y1="' + maxLine[0].y + '" x2="' + maxLine[1].x + '" y2="' + maxLine[1].y + '" class="graph-max-line"></line>'
+            + '<polyline points="' + polyline(remainingPoints) + '" class="graph-remaining-line"></polyline>'
+            + '<text x="' + (pad.l + 4) + '" y="' + (maxLine[0].y - 6) + '" class="graph-label">Max Budget</text>'
+            + '<text x="' + (pad.l + 4) + '" y="' + (sy(series.current) - 6) + '" class="graph-label">Current Budget</text>';
+    }
+
+    function render(requests, maxBudget) {
         const approved = [];
         const denied = [];
         requests.forEach(function (request) {
@@ -80,10 +186,18 @@
         const deniedTotal = denied.reduce(function (sum, request) {
             return sum + (Number(request.itemPrice) || 0) * (Number(request.itemAmount) || 0);
         }, 0);
+        const series = buildBudgetSeries(requests, maxBudget);
 
         summary.textContent =
             "Approved: " + approved.length + " (" + formatCurrency(approvedTotal) + ")" +
             " | Denied: " + denied.length + " (" + formatCurrency(deniedTotal) + ")";
+        if (currentBudgetEl) {
+            currentBudgetEl.textContent = formatCurrency(series.current);
+        }
+        if (maxBudgetEl) {
+            maxBudgetEl.textContent = formatCurrency(maxBudget);
+        }
+        renderBudgetGraph(series, maxBudget);
 
         list.innerHTML = "";
         if (requests.length === 0) {
@@ -147,7 +261,9 @@
     enforceRole()
         .then(function (ok) {
             if (!ok) return;
-            return fetchRequests().then(render);
+            return Promise.all([fetchRequests(), fetchCompanyBudget()]).then(function (res) {
+                render(res[0], res[1]);
+            });
         })
         .catch(function (error) {
             list.innerHTML = "";
