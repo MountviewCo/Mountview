@@ -26,9 +26,10 @@ Generate key in PowerShell:
 - `/.netlify/functions/copy-template-later`
   - Uses stored refresh token to create a new Google Sheet when you call it later.
   - Accepts JSON body:
-    - `sheetName` (string, optional)
+    - `companyName` (string, optional)
     - `reuseExisting` (boolean, optional, defaults to `true`)
   - Returns `fileId`, `name`, `webViewLink`, and `reused` (`true` if same-name sheet already existed).
+  - Sheet names are enforced as: `Company Name - Mountview` (fallback: `User Company Name - Mountview`).
 
 ## Test page
 

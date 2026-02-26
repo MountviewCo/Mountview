@@ -7,7 +7,7 @@
 
     const config = window.MOUNTVIEW_CONFIG || {};
     const GOOGLE_SHEETS_ENDPOINT = String(config.googleSheetsEndpoint || "").trim();
-    const TARGET_SPREADSHEET_ID = String(config.spreadsheetId || "").trim();
+    const TARGET_SPREADSHEET_ID = String(localStorage.getItem("mountview_target_spreadsheet_id") || config.spreadsheetId || "").trim();
     const TARGET_SPREADSHEET_NAME = String(config.spreadsheetName || "").trim();
     const LOCAL_STORE_KEY = "mountview_requests";
 

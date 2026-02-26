@@ -1,4 +1,3 @@
-const DEFAULT_SPREADSHEET_ID = "16oFvTRyHD6QBINQFkT-eYkbwY3cJyQIrYE5wP6JwCdk";
 const REQUESTS_SHEET = "Requests";
 const COMPANY_SHEET = "CompanyInfo";
 
@@ -227,14 +226,6 @@ function getSpreadsheetForRequest_(e) {
       }
     }
     return null;
-  }
-
-  if (DEFAULT_SPREADSHEET_ID) {
-    try {
-      return SpreadsheetApp.openById(DEFAULT_SPREADSHEET_ID);
-    } catch (error) {
-      return null;
-    }
   }
 
   return null;

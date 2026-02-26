@@ -92,6 +92,14 @@ async function findSpreadsheetByName(accessToken, sheetName) {
   return Array.isArray(data.files) && data.files.length ? data.files[0] : null;
 }
 
+function buildSheetName(companyNameRaw) {
+  const base = typeof companyNameRaw === 'string' && companyNameRaw.trim()
+    ? companyNameRaw.trim()
+    : 'User Company Name';
+  const suffix = ' - Mountview';
+  return base.endsWith(suffix) ? base : `${base}${suffix}`;
+}
+
 exports.handler = async function handler(event) {
   if (event.httpMethod !== 'POST') {
     return {
@@ -129,9 +137,7 @@ exports.handler = async function handler(event) {
     payload = {};
   }
 
-  const desiredName = typeof payload.sheetName === 'string' && payload.sheetName.trim()
-    ? payload.sheetName.trim()
-    : `Mountview Database ${new Date().toISOString().slice(0, 10)}`;
+  const desiredName = buildSheetName(payload.companyName);
   const reuseExisting = payload.reuseExisting !== false;
 
   try {
@@ -190,7 +196,7 @@ exports.handler = async function handler(event) {
     return {
       statusCode: 500,
       headers: { 'content-type': 'application/json' },
-      body: JSON.stringify({ error: 'Copy failed', details: err.message })
+      body: JSON.stringify({ error: 'Create failed', details: err.message })
     };
   }
 };
