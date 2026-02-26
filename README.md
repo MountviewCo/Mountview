@@ -1,7 +1,7 @@
 # Mountview
 A great mount for a view
 
-## Google OAuth + delayed sheet copy setup
+## Google OAuth + delayed sheet creation setup
 
 1. In Google Cloud Console, create OAuth client type `Web application`.
 2. Authorized redirect URI must include:
@@ -9,7 +9,6 @@ A great mount for a view
 3. In Netlify Site settings -> Environment variables, add:
    - `GOOGLE_CLIENT_ID`
    - `GOOGLE_CLIENT_SECRET`
-   - `GOOGLE_TEMPLATE_FILE_ID` (ID of your template spreadsheet file)
    - `GOOGLE_TOKEN_ENCRYPTION_KEY` (base64 for 32 random bytes)
 
 Generate key in PowerShell:
@@ -25,13 +24,17 @@ Generate key in PowerShell:
 - `/.netlify/functions/google-callback`
   - Exchanges auth code and stores encrypted refresh token in HttpOnly cookie.
 - `/.netlify/functions/copy-template-later`
-  - Uses stored refresh token to copy template sheet when you call it later.
+  - Uses stored refresh token to create a new Google Sheet when you call it later.
+  - Accepts JSON body:
+    - `sheetName` (string, optional)
+    - `reuseExisting` (boolean, optional, defaults to `true`)
+  - Returns `fileId`, `name`, `webViewLink`, and `reused` (`true` if same-name sheet already existed).
 
 ## Test page
 
 Open `/connect.html` and use:
 - Connect Google Account
-- Copy Template Now
+- Create Google Sheet Now
 
 For production, replace cookie-based token storage with database storage per user account.
 

@@ -11,16 +11,21 @@
     <section class="panel form-card"> 
       <header class="card-header">
         <h1>Google Connection</h1>
-        <p>Connect now, copy your template sheet later.</p>
+        <p>Connect now, create a new Google Sheet later.</p>
       </header>
 
       <div style="display:grid;gap:.8rem;">
         <button id="connectGoogle" type="button">Connect Google Account</button>
 
-        <label for="sheetName">Sheet Name (optional when copying)</label>
+        <label for="sheetName">Sheet Name (optional)</label>
         <input id="sheetName" type="text" placeholder="Mountview Database">
 
-        <button id="copyTemplate" type="button">Copy Template Now</button>
+        <label style="display:flex;align-items:center;gap:.5rem;">
+          <input id="reuseExisting" type="checkbox" checked>
+          Reuse existing sheet with same name
+        </label>
+
+        <button id="copyTemplate" type="button">Create Google Sheet Now</button>
       </div>
 
       <pre id="status" style="margin-top:1rem;white-space:pre-wrap;color:var(--muted);"></pre>
@@ -33,6 +38,7 @@
       const connectBtn = document.getElementById('connectGoogle');
       const copyBtn = document.getElementById('copyTemplate');
       const sheetNameInput = document.getElementById('sheetName');
+      const reuseExistingInput = document.getElementById('reuseExisting');
 
       function setStatus(message) {
         statusEl.textContent = message;
@@ -43,12 +49,15 @@
       });
 
       copyBtn.addEventListener('click', async function () {
-        setStatus('Copying template...');
+        setStatus('Creating spreadsheet...');
         try {
           const response = await fetch('/.netlify/functions/copy-template-later', {
             method: 'POST',
             headers: { 'content-type': 'application/json' },
-            body: JSON.stringify({ sheetName: sheetNameInput.value || undefined })
+            body: JSON.stringify({
+              sheetName: sheetNameInput.value || undefined,
+              reuseExisting: reuseExistingInput.checked
+            })
           });
 
           const data = await response.json();
@@ -65,7 +74,7 @@
 
       const params = new URLSearchParams(window.location.search);
       if (params.get('google') === 'connected') {
-        setStatus('Google account connected. You can copy a template any time now.');
+        setStatus('Google account connected. You can create a sheet any time now.');
       }
     })();
   </script>
