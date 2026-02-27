@@ -18,12 +18,13 @@
 - `GOOGLE_CLIENT_ID`
 - `GOOGLE_CLIENT_SECRET`
 - `GOOGLE_TOKEN_ENCRYPTION_KEY` (base64 for 32 random bytes)
+- `APPS_SCRIPT_EXEC_URL` (your Apps Script `/exec` URL)
 
 ## Frontend config
 
 Edit `config.js`:
 
-- `googleSheetsEndpoint`: your Apps Script web app `/exec` URL
+- `googleSheetsEndpoint`: keep as `/.netlify/functions/apps-script-proxy`
 - `registrySpreadsheetId`: your registry sheet ID
 - `spreadsheetId`: optional fallback request sheet ID (normal flow uses company assignment)
 
